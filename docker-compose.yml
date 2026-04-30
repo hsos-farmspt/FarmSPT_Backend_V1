@@ -28,7 +28,7 @@ services:
       KC_DB_URL: jdbc:postgresql://db:5432/farmspt_db
       KC_DB_USERNAME: postgres
       KC_DB_PASSWORD: postgres
-      KC_HOSTNAME: api.farmspt.ai.edvsz.hs-osnabrueck.de
+      KC_HOSTNAME: 192.168.4.35
     ports:
       - "8080:8080"
     command: start-dev
@@ -50,7 +50,7 @@ services:
       - DB_PASSWORD=postgres
       - DB_HOST=db
       - DB_PORT=5432
-      - KEYCLOAK_URL=https://api.farmspt.ai.edvsz.hs-osnabrueck.de
+      - KEYCLOAK_URL=https://192.168.4.35:8080
       - KEYCLOAK_REALM=FarmSPT_v1
       - KEYCLOAK_CLIENT_ID=farmspt_v1-api
       - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
