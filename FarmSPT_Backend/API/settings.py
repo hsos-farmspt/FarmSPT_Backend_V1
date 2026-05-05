@@ -31,8 +31,18 @@ SECRET_KEY = 'django-insecure-s5pk5t8mtz8&no0rpfq0!_^96z$we^mfv!r1xf@5*eybtxwqv8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+
+# Traefik / Reverse Proxy
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False  # In Produktion auf True setzen
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
 ALLOWED_HOSTS = [
     "localhost",
+    "backend",
+    "api.farmspt.ai.edvsz.hs-osnabrueck.de",
     "127.0.0.1",
     "0.0.0.0",
     "*",
@@ -196,6 +206,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.4.35:5173",
     "https://api.farmspt.ai.edvsz.hs-osnabrueck.de",
     "https://frontend.farmspt.ai.edvsz.hs-osnabrueck.de",
+    "https://app.farmspt.ai.edvsz.hs-osnabrueck.de",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -206,5 +217,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://192.168.4.35:5173",
     "https://api.farmspt.ai.edvsz.hs-osnabrueck.de",
     "https://frontend.farmspt.ai.edvsz.hs-osnabrueck.de",
+    "https://app.farmspt.ai.edvsz.hs-osnabrueck.de",
 ]
 

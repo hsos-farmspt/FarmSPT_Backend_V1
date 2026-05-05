@@ -1,9 +1,50 @@
 version: '3.8'
 
 services:
+  traefik_reverse_proxy:
+    image: traefik:v3.6
+    restart: unless-stopped
+    networks:
+      farmspt_network:
+        aliases:
+          - traefik.farmspt.ai.edvsz.hs-osnabrueck.de
+          - keycloak.farmspt.ai.edvsz.hs-osnabrueck.de
+          - api.farmspt.ai.edvsz.hs-osnabrueck.de
+    ports:
+        - "80:80"
+        - "443:443"
+        - "8081:8080" #für das dashboard von Traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.https.address=:443"
+      - "--certificatesresolvers.httpresolver.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.httpresolver.acme.caserver=${ACME_CASERVER}"
+      - "--certificatesresolvers.httpresolver.acme.eab.kid=${ACME_EAB_KID}"
+      - "--certificatesresolvers.httpresolver.acme.eab.hmacencoded=${ACME_EAB_HMACENCODED}"
+      - "--certificatesresolvers.httpresolver.acme.storage=/acme/acme.json"
+      - "--certificatesresolvers.httpresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.httpresolver.acme.httpchallenge.entrypoint=web"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traefik.farmspt.ai.edvsz.hs-osnabrueck.de`)
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.entrypoints=https
+      - traefik.http.routers.traefik.tls=true
+      - traefik.http.middlewares.security-headers.headers.stsSeconds=31536000
+      - traefik.http.middlewares.security-headers.headers.forceSTSHeader=true
+
+   
   db:
     image: postgres:15-alpine
     container_name: farmspt_postgres
+    networks:
+      - farmspt_network
     environment:
       POSTGRES_DB: farmspt_db
       POSTGRES_USER: postgres
@@ -21,6 +62,8 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: farmspt_keycloak
+    networks:
+      - farmspt_network
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -34,12 +77,21 @@ services:
     command: start-dev
     depends_on:
       - db
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.keycloak.rule=Host(`keycloak.${PROJECT_BASE_URL}`)
+      - traefik.http.routers.keycloak.entrypoints=https
+      - traefik.http.routers.keycloak.tls=true
+      - traefik.http.routers.keycloak.middlewares=security-headers
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: farmspt_backend
+    networks:
+      - farmspt_network
     ports:
       - "8000:8000"
     environment:
@@ -50,7 +102,7 @@ services:
       - DB_PASSWORD=postgres
       - DB_HOST=db
       - DB_PORT=5432
-      - KEYCLOAK_URL=http://localhost:8080
+      - KEYCLOAK_URL=http://keycloak:8080
       - KEYCLOAK_REALM=FarmSPT_v1
       - KEYCLOAK_CLIENT_ID=farmspt_v1-api
       - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
@@ -59,6 +111,17 @@ services:
         condition: service_healthy
        keycloak:
         condition: service_started
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend.rule=Host(`api.${PROJECT_BASE_URL}`)
+      - traefik.http.routers.backend.entrypoints=https
+      - traefik.http.routers.backend.tls=true
+      - traefik.http.routers.backend.middlewares=security-headers
+      - traefik.http.services.backend.loadbalancer.server.port=8000
 
 volumes:
   postgres_data:
+
+networks:
+  farmspt_network:
+    driver: bridge
