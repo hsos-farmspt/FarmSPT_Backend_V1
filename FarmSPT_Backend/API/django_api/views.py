@@ -14,7 +14,7 @@ from .models import Role, Policy
 from .serializers import RoleSerializer, PolicySerializer
 
 
-#helper method
+#helper method (made with claude )
 def _parse_points_from_lsg(lsg_element):
     points = []
     if lsg_element is None:
@@ -28,7 +28,7 @@ def _parse_points_from_lsg(lsg_element):
         points.append([float(lat), float(lon)])
     return points
 
-#helper method
+#helper method (made with claude)
 def _distance_km(points):
     if len(points) < 2:
         return 0.0
@@ -119,7 +119,7 @@ class FieldBoundaryViewSet(viewsets.ModelViewSet):
             area_hectares=area_hectares,
         )
 
-        # ✅ ZUSÄTZLICH: AB-Spuren importieren
+        # ZUSÄTZLICH: AB-Spuren importieren
         traces_imported = 0
         try:
             for ggp in pfd.findall(".//GGP"):
