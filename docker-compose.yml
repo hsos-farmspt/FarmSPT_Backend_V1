@@ -69,7 +69,10 @@ services:
       KC_DB_URL: "jdbc:postgresql://db:5432/farmspt_db"
       KC_DB_USERNAME: "postgres"
       KC_DB_PASSWORD: "postgres"
+      KC_PROXY: "edge"
       KC_HOSTNAME: "keycloak.${PROJECT_BASE_URL}"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
     expose:
       - "8080"
     depends_on:
