@@ -85,16 +85,15 @@ OIDC_OP_USER_ENDPOINT = f"{os.getenv('KEYCLOAK_URL')}/realms/{os.getenv('KEYCLOA
 OIDC_OP_JWKS_ENDPOINT = f"{os.getenv('KEYCLOAK_URL')}/realms/{os.getenv('KEYCLOAK_REALM')}/protocol/openid-connect/certs"
 
 OIDC_RP_SCOPES = 'openid profile email'
-# Für interne Docker-Kommunikation (Backend → Keycloak)
-if os.getenv('DB_HOST') == 'db':  # Wir sind im Docker
-    KEYCLOAK_INTERNAL_URL = 'http://keycloak:8080'
-else:
-    KEYCLOAK_INTERNAL_URL = os.getenv('KEYCLOAK_URL')
 
- #Token-Endpoints nutzen interne URL
-OIDC_OP_TOKEN_ENDPOINT = f"{KEYCLOAK_INTERNAL_URL}/realms/{os.getenv('KEYCLOAK_REALM')}/protocol/openid-connect/token"
-OIDC_OP_USER_ENDPOINT = f"{KEYCLOAK_INTERNAL_URL}/realms/{os.getenv('KEYCLOAK_REALM')}/protocol/openid-connect/userinfo"
-OIDC_OP_JWKS_ENDPOINT = f"{KEYCLOAK_INTERNAL_URL}/realms/{os.getenv('KEYCLOAK_REALM')}/protocol/openid-connect/certs"
+# Immer die externe HTTPS-URL verwenden (auch von innen über Traefik)
+KEYCLOAK_URL = os.getenv('KEYCLOAK_URL')  # https://keycloak.farmspt.ai.edvsz.hs-osnabrueck.de
+KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM')
+
+# Token-Endpoints nutzen EXTERNE URL
+OIDC_OP_TOKEN_ENDPOINT = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token"
+OIDC_OP_USER_ENDPOINT = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/userinfo"
+OIDC_OP_JWKS_ENDPOINT = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/certs"
 
 LOGIN_REDIRECT_URL = '/'
 
@@ -207,6 +206,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://api.farmspt.ai.edvsz.hs-osnabrueck.de",
     "https://frontend.farmspt.ai.edvsz.hs-osnabrueck.de",
     "https://app.farmspt.ai.edvsz.hs-osnabrueck.de",
+    "https://keycloak.farmspt.ai.edvsz.hs-osnabrueck.de",
+    "https://traefik.farmspt.ai.edvsz.hs-osnabrueck.de",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -218,5 +219,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://api.farmspt.ai.edvsz.hs-osnabrueck.de",
     "https://frontend.farmspt.ai.edvsz.hs-osnabrueck.de",
     "https://app.farmspt.ai.edvsz.hs-osnabrueck.de",
+    "https://keycloak.farmspt.ai.edvsz.hs-osnabrueck.de",
+    "https://traefik.farmspt.ai.edvsz.hs-osnabrueck.de",
 ]
 
