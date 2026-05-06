@@ -69,8 +69,9 @@ services:
       KC_DB_URL: "jdbc:postgresql://db:5432/farmspt_db"
       KC_DB_USERNAME: "postgres"
       KC_DB_PASSWORD: "postgres"
-      KC_PROXY: "edge"
+      KC_PROXY_HEADERS: "xforwarded"
       KC_HOSTNAME: "keycloak.${PROJECT_BASE_URL}"
+      KC_HOSTNAME_URL: "https://keycloak.${PROJECT_BASE_URL}"
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
     expose:
@@ -84,6 +85,10 @@ services:
       - "traefik.http.routers.keycloak.tls=true"
       - "traefik.http.routers.keycloak.tls.options=default"
       - "traefik.http.routers.keycloak.tls.certresolver=httpresolver"
+    
+      - "traefik.http.middlewares.keycloak-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.keycloak-headers.headers.customrequestheaders.X-Forwarded-Host=keycloak.${PROJECT_BASE_URL}"
+      - "traefik.http.routers.keycloak.middlewares=keycloak-headers"
 
       - "traefik.http.routers.keycloak.service=keycloak"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
