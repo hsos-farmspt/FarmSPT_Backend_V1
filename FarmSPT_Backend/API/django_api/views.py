@@ -76,7 +76,7 @@ class FieldBoundaryViewSet(viewsets.ModelViewSet):
     """
     queryset = FieldBoundary.objects.all()
     serializer_class = FieldBoundarySerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.AllowAny] #TODO Set to IsAuthenticated for production
     parser_classes = (MultiPartParser, FormParser)
 
     @action(
