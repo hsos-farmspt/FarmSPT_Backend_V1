@@ -89,6 +89,9 @@ OIDC_RP_SCOPES = 'openid profile email'
 # Immer die externe HTTPS-URL verwenden (auch von innen über Traefik)
 KEYCLOAK_URL = os.getenv('KEYCLOAK_URL')  # https://keycloak.farmspt.ai.edvsz.hs-osnabrueck.de
 KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM')
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID")
+KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET")
+
 
 # Token-Endpoints nutzen EXTERNE URL
 OIDC_OP_TOKEN_ENDPOINT = f"{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/token"

@@ -1,10 +1,10 @@
 from django.shortcuts import render
 from django.contrib.auth.models import Group, User
 from rest_framework import permissions, viewsets, status
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, AllowAny
 from API.django_api.serializers import ABTraceXMLUploadSerializer, FieldBoundaryXMLUploadSerializer, GroupSerializer, UserSerializer, FieldBoundarySerializer, ABTraceSerializer
 from API.django_api.models import FieldBoundary, ABTrace
 import xml.etree.ElementTree as ET
@@ -267,6 +267,94 @@ class PolicyViewSet(viewsets.ModelViewSet):
 
 # API/django_api/views.py - neuer Endpoint
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def keycloak_create_user(request):
+    """
+    Erstellt einen neuen User in Keycloak
+    
+    POST /api/keycloak/users/
+    
+    Erforderliche Parameter (JSON):
+    {
+        "username": "john.doe",
+        "email": "john@example.com",
+        "password": "SecurePassword123!",
+        "first_name": "John",
+        "last_name": "Doe"
+    }
+    
+    Response bei Erfolg (201):
+    {
+        "status": "created"
+    }
+    """
+    username = request.data.get("username")
+    email = request.data.get("email")
+    password = request.data.get("password")
+    first_name = request.data.get("first_name", "")
+    last_name = request.data.get("last_name", "")
+    
+    if not username or not email or not password:
+        return Response(
+            {"error": "username, email and password are required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
+    admin_url = f"{settings.KEYCLOAK_URL}/admin/realms/{settings.KEYCLOAK_REALM}/users"
+
+    token_response = requests.post(
+        token_url,
+        data={
+            "grant_type": "client_credentials",
+            "client_id": settings.KEYCLOAK_CLIENT_ID,
+            "client_secret": settings.KEYCLOAK_CLIENT_SECRET,
+        },
+        verify=False,
+    )
+
+    if token_response.status_code != 200:
+        return Response(
+            {"error": "Could not authenticate with Keycloak service account"},
+            status=status.HTTP_502_BAD_GATEWAY
+        )
+
+    access_token = token_response.json()["access_token"]
+
+    payload = {
+        "username": username,
+        "email": email,
+        "firstName": first_name,
+        "lastName": last_name,
+        "enabled": True,
+        "credentials": [
+            {
+                "type": "password",
+                "value": password,
+                "temporary": False
+            }
+        ],
+    }
+
+    create_response = requests.post(
+        admin_url,
+        json=payload,
+        headers={"Authorization": f"Bearer {access_token}"},
+        verify=False,
+    )
+
+    if create_response.status_code not in [201, 204]:
+        return Response(
+            {"error": "Keycloak user creation failed", "details": create_response.text},
+            status=status.HTTP_502_BAD_GATEWAY
+        )
+
+    return Response(
+        {"status": "created"},
+        status=status.HTTP_201_CREATED
+    )
 
 @api_view(['POST'])
 def token_login(request):
