@@ -16,10 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from API.django_api import views
-from rest_framework import routers
 from django.conf import settings
 from django.views.static import serve
+
+from rest_framework import routers
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework.reverse import reverse
+
+from API.django_api import views
 
 router = routers.DefaultRouter()
 router.register(r"users", views.UserViewSet)
@@ -29,15 +34,28 @@ router.register(r"traces", views.ABTraceViewSet)
 
 FRONTEND_DIR = settings.BASE_DIR / "API" / "_frontend_test"
 
+
+@api_view(["GET"])
+def api_root(request, format=None):
+    return Response(
+        {
+            "users": reverse("user-list", request=request, format=format),
+            "groups": reverse("group-list", request=request, format=format),
+            "fieldboundaries": reverse("fieldboundary-list", request=request, format=format),
+            "traces": reverse("abtrace-list", request=request, format=format),
+            "login": reverse("token_login", request=request, format=format),
+            "oidc": request.build_absolute_uri("/oidc/"),
+        }
+    )
+
+
 urlpatterns = [
-    path("", include(router.urls)),
+    path("", api_root, name="api-root"),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
-    path('admin/', admin.site.urls),
-    
-    # Statische Dateien (.js, .css, .html) direkt servieren
-    path('app/<path:path>', serve, {"document_root": FRONTEND_DIR}),
-    # Nur root /app/ auf index.html
-    path('app/', serve, {"path": "index.html", "document_root": FRONTEND_DIR}),
-    path('api/login/', views.token_login, name='token_login'),
-    path('oidc/', include('mozilla_django_oidc.urls')),
+    path("admin/", admin.site.urls),
+    path("app/<path:path>", serve, {"document_root": FRONTEND_DIR}),
+    path("app/", serve, {"path": "index.html", "document_root": FRONTEND_DIR}),
+    path("api/login/", views.token_login, name="token_login"),
+    path("oidc/", include("mozilla_django_oidc.urls")),
+    path("", include(router.urls)),
 ]
