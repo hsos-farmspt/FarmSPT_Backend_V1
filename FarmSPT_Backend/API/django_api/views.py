@@ -270,11 +270,11 @@ class PolicyViewSet(viewsets.ModelViewSet):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def keycloak_create_user(request):
+def keycloak_create_manufacturer(request):
     """
-    Erstellt einen neuen User in Keycloak
+    Erstellt einen neuen Manufacturer(User) in Keycloak
     
-    POST /api/keycloak/users/
+    POST /api/keycloak/manufacturers/
     
     Erforderliche Parameter (JSON):
     {

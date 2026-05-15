@@ -44,7 +44,7 @@ def api_root(request, format=None):
             "fieldboundaries": reverse("fieldboundary-list", request=request, format=format),
             "traces": reverse("abtrace-list", request=request, format=format),
             "login": reverse("token_login", request=request, format=format),
-            "keycloak_create_user": reverse("keycloak_create_user", request=request, format=format),
+            "keycloak_create_manufacturer": reverse("keycloak_create_manufacturer", request=request, format=format),
             "oidc": request.build_absolute_uri("/oidc/"),
         }
     )
@@ -58,6 +58,6 @@ urlpatterns = [
     path("app/", serve, {"path": "index.html", "document_root": FRONTEND_DIR}),
     path("api/login/", views.token_login, name="token_login"),
     path("oidc/", include("mozilla_django_oidc.urls")),
-    path("api/keycloak/users/", views.keycloak_create_user, name="keycloak_create_user"),
+    path("api/keycloak/manufacturers/", views.keycloak_create_manufacturer, name="keycloak_create_manufacturer"),
     path("", include(router.urls)),
 ]
