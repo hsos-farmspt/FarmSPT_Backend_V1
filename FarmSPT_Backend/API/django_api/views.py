@@ -447,7 +447,7 @@ def _check_user_access_allowed_from_jwt(decoded_token):
     is_manufacturer = '/Manufacturers' in groups
     
     # Überprüfung: User hat 'default deny' Rolle?
-    has_default_deny = 'default deny' in roles
+    has_default_deny = 'default-deny' in roles
     
     # Zugriff verweigern wenn eine Bedingungen zutrifft
     if is_manufacturer or has_default_deny:
