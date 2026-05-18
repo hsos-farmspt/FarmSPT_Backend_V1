@@ -15,6 +15,7 @@ from .serializers import RoleSerializer, PolicySerializer
 import requests
 import requests
 from django.conf import settings
+import jwt
 
 
 #helper method (made with claude )
@@ -366,14 +367,6 @@ def token_login(request):
         "username": "user@example.com",
         "password": "password123"
     }
-    
-    Response:
-    {
-        "access_token": "eyJhbGc...",
-        "token_type": "Bearer",
-        "expires_in": 300,
-        "refresh_token": "..."
-    }
     """
     username = request.data.get('username')
     password = request.data.get('password')
@@ -385,7 +378,7 @@ def token_login(request):
         )
     
     try:
-        # Keycloak Token Endpoint
+        # Token vom Keycloak anfordern
         token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
         
         payload = {
@@ -405,10 +398,59 @@ def token_login(request):
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
-        return Response(response.json(), status=status.HTTP_200_OK)
+        token_data = response.json()
+        access_token = token_data.get('access_token')
+        
+        # JWT dekodieren (ohne Signatur-Validierung für dev/local)
+        decoded_token = jwt.decode(access_token, options={"verify_signature": False})
+        
+        # ✅ Zugriff überprüfen MIT JWT-Daten
+        is_allowed, error_message = _check_user_access_allowed_from_jwt(decoded_token)
+        
+        if not is_allowed:
+            return Response(
+                {"error": error_message},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return Response(token_data, status=status.HTTP_200_OK)
         
     except Exception as e:
         return Response(
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+def _check_user_access_allowed_from_jwt(decoded_token):
+    """
+    Überprüft Zugriff direkt aus dem JWT heraus
+    
+    Zugriff wird VERWEIGERT wenn:
+    - User in '/Manufacturers' Gruppe ist (beachte Leading Slash!)
+    - UND User hat 'default deny' Rolle
+    
+    Returns: (bool, str) - (is_allowed, error_message)
+    """
+    # Gruppen aus JWT (mit Leading Slash!)
+    groups = decoded_token.get('groups', [])
+    
+    # Rollen aus JWT (realm_access)
+    realm_access = decoded_token.get('realm_access', {})
+    roles = realm_access.get('roles', [])
+    
+    # Debug: Ausgeben für Testing
+    print(f"Groups: {groups}")
+    print(f"Roles: {roles}")
+    
+    # Überprüfung: User in Manufacturers Gruppe? (mit Slash!)
+    is_manufacturer = '/Manufacturers' in groups
+    
+    # Überprüfung: User hat 'default deny' Rolle?
+    has_default_deny = 'default deny' in roles
+    
+    # Zugriff verweigern wenn eine Bedingungen zutrifft
+    if is_manufacturer or has_default_deny:
+        return False, "not allowed (missing access-code)"
+    
+    return True, None
