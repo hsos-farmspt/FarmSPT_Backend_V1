@@ -10,8 +10,8 @@ from API.django_api.models import FieldBoundary, ABTrace
 import xml.etree.ElementTree as ET
 import json
 from math import radians, sin, cos, sqrt, atan2
-from .models import Role, Policy
-from .serializers import RoleSerializer, PolicySerializer
+from .models import Role
+from .serializers import RoleSerializer
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakGetError
 import requests
@@ -330,10 +330,7 @@ class RoleViewSet(viewsets.ModelViewSet):
         serializer_class = RoleSerializer
         permission_classes = [IsAdminUser]
 
-class PolicyViewSet(viewsets.ModelViewSet):
-        queryset = Policy.objects.all()
-        serializer_class = PolicySerializer
-        permission_classes = [IsAdminUser]
+
 
 
 # API/django_api/views.py - neuer Endpoint

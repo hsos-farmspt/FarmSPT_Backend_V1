@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User,Group
 from rest_framework import serializers
-from .models import FieldBoundary, ABTrace, Role, Policy
+from .models import FieldBoundary, ABTrace, Role
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -37,9 +37,6 @@ class RoleSerializer(serializers.ModelSerializer):
         model = Role
         fields = ['id', 'name', 'description']
 
-class PolicySerializer(serializers.ModelSerializer):
-    role_name= serializers.StringRelatedField(source='role')
 
-    class Meta:
-        model = Policy
-        fields = ['id', 'role_name', 'resource', 'action', 'created_at']
+
+    

@@ -1,6 +1,58 @@
 from django.db import models
 import uuid
 
+class Farmer (models.Model):
+    """Datenbankmodell für die Speicherung von Informationen zu Eigentümern"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+            return self.name
+
+
+
+class Role(models.Model):
+    """Rollen für Zugriffskontrolle der Datenbank aus keycloak"""
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+
+    def __str__(self):
+        return self.name
+    
+class Manufacturer(models.Model):
+    """Datenbankmodell für die Speicherung von Informationen zu Herstellern"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True) 
+
+    def __str__(self):
+            return self.name
+
+class SyncPartner(models.Model):
+    """Datenbankmodell für die Speicherung von Informationen zu Synchronisationspartnern"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, null=True, blank=True)
+    manufacturer = models.ForeignKey(Manufacturer, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)    
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, null=True, blank=True)  
+
+    def __str__(self):
+            return str(self.farmer)
+  
+
+
+class FieldData (models.Model):
+        """Datenbankmodell für die Speicherung von Metadaten zur auswertung und zuordnung von Feldern"""
+        farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, null=True, blank=True)
+        syncPartner = models.ForeignKey(SyncPartner, on_delete=models.CASCADE)
+
+        def __str__(self):
+            return str(self.farmer)
+
 class FieldBoundary(models.Model):
     """XML-Import für Feldgrenzen"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -9,6 +61,7 @@ class FieldBoundary(models.Model):
     area_hectares = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -20,38 +73,19 @@ class ABTrace(models.Model):
     trace_data = models.JSONField()  # GPS-Spurdaten
     distance_km = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True)
+    farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return f"Trace for {self.field.name}"
     
-class Role(models.Model):
-    """Rollen für Zugriffskontrolle der Datenbank"""
-    name = models.CharField(max_length=255)
-    description = models.TextField()
 
-    def __str__(self):
-        return self.name
     
-class Policy (models.Model):
-    """ Casbin Policies für Zugriffskontrolle der Datenbank"""
-    ACTIONS = [ 
-        ('read', 'Read Access'),
-        ('write', 'Write Access'),
-        ('delete', 'Delete Access'),
-        ('admin', 'Admin Access'),
-        ('denied', 'Denied Access'),
-        ('custom', 'Custom Access'),
-        ('temporary', 'Temporary Access'),
-    ]    
+  
 
-    role = models.ForeignKey(Role, on_delete=models.CASCADE)
-    resource = models.CharField(max_length=100)  # z.B. 'fieldboundary', 'trace'
-    action = models.CharField(max_length=50, choices=ACTIONS)
-    created_at = models.DateTimeField(auto_now_add=True)
+
+
+
+
+   
     
-    class Meta:
-        unique_together = ('role', 'resource', 'action')
-    
-    def __str__(self):
-        return f"{self.role.name} - {self.action} - {self.resource}"
 

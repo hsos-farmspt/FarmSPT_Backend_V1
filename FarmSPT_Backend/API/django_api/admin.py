@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import FieldBoundary, ABTrace, Role, Policy
+from .models import FieldBoundary, ABTrace, Role
 
 @admin.register(FieldBoundary)
 class FieldBoundaryAdmin(admin.ModelAdmin):
@@ -13,6 +13,4 @@ class ABTraceAdmin(admin.ModelAdmin):
 class RoleAdmin(admin.ModelAdmin):
     list_display = ['name', 'description']
 
-@admin.register(Policy)
-class PolicyAdmin(admin.ModelAdmin):
-    list_display = ['role', 'resource', 'action', 'created_at']
+
