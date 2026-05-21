@@ -1,5 +1,9 @@
 from django.contrib import admin
-from .models import FieldBoundary, ABTrace, Role
+from .models import FieldBoundary, ABTrace, Role, Farmer
+
+@admin.register(Farmer)
+class FarmerAdmin(admin.ModelAdmin):
+    list_display = ['name', 'created_at', 'updated_at']
 
 @admin.register(FieldBoundary)
 class FieldBoundaryAdmin(admin.ModelAdmin):
