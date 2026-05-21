@@ -45,7 +45,7 @@ def api_root(request, format=None):
             "traces": reverse("abtrace-list", request=request, format=format),
             "login": reverse("token_login", request=request, format=format),
             "keycloak_create_manufacturer": reverse("keycloak_create_manufacturer", request=request, format=format),
-            "oidc": request.build_absolute_uri("/oidc/"),
+            "oidc": request.build_absolute_uri("/oidc/authenticate/"),
         }
     )
 

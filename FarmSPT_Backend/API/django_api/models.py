@@ -5,6 +5,7 @@ class Farmer (models.Model):
     """Datenbankmodell für die Speicherung von Informationen zu Eigentümern"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255)
+    email = models.EmailField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
