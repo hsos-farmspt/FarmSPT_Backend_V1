@@ -19,6 +19,25 @@ import requests
 from django.conf import settings
 import jwt
 
+### HELPER METHODS ###
+def _get_farmer_from_request(request):
+    """
+    Helper: Holt den Farmer basierend auf der Email des authentifizierten Users
+    Nutzt die Email aus dem Keycloak-Token (via request.user.email)
+    
+    Returns: Farmer Objekt oder None
+    """
+    from .models import Farmer
+    
+    user = request.user
+    if not user or not user.email:
+        return None
+    
+    try:
+        farmer = Farmer.objects.get(email=user.email)
+        return farmer
+    except Farmer.DoesNotExist:
+        return None
 
 #helper method (made with claude )
 def _parse_points_from_lsg(lsg_element):
@@ -59,7 +78,7 @@ def _distance_km(points):
 
 
 
-#helper method for createing user in keycloak and adding to group (made with claude)
+#helper method for createing user in keycloak and adding to group (made with claude lol)
 def _add_user_to_manufacturers_group(user_id):
     """
     Helper-Methode: Fügt einen User zur 'Manufacturers' Gruppe hinzu
@@ -124,6 +143,8 @@ def _add_user_to_manufacturers_group(user_id):
     except Exception as e:
         print(f"Fehler beim Hinzufügen zur Gruppe: {e}")
         return False, str(e)
+    
+##############################################################################
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -150,8 +171,15 @@ class FieldBoundaryViewSet(viewsets.ModelViewSet):
     """
     queryset = FieldBoundary.objects.all()
     serializer_class = FieldBoundarySerializer
-    permission_classes = [permissions.IsAuthenticated] #TODO Set to IsAuthenticated for production
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
+
+    def get_queryset(self):
+        """Filtert Feldgrenzen nach dem aktuellen Farmer"""
+        farmer = _get_farmer_from_request(self.request)
+        if farmer:
+            return FieldBoundary.objects.filter(farmer=farmer)
+        return FieldBoundary.objects.none()
 
     @action(
         detail=False,
@@ -167,6 +195,13 @@ class FieldBoundaryViewSet(viewsets.ModelViewSet):
         upload_serializer = FieldBoundaryXMLUploadSerializer(data=request.data)
         upload_serializer.is_valid(raise_exception=True)
         xml_file = upload_serializer.validated_data["file"]
+
+        farmer = _get_farmer_from_request(request)
+        if not farmer:
+            return Response(
+                {"error": "Kein Farmer für deine Email gefunden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         try:
             root = ET.parse(xml_file).getroot()
@@ -191,6 +226,7 @@ class FieldBoundaryViewSet(viewsets.ModelViewSet):
             name=field_name,
             coordinates=coordinates,
             area_hectares=area_hectares,
+            farmer=farmer,  # ← Farmer gesetzt
         )
 
         # ZUSÄTZLICH: AB-Spuren importieren
@@ -265,8 +301,15 @@ class ABTraceViewSet(viewsets.ModelViewSet):
     """
     queryset = ABTrace.objects.all()
     serializer_class = ABTraceSerializer
-    permission_classes = [permissions.IsAuthenticated]  # TODO: Set to IsAuthenticated for production
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
+
+    def get_queryset(self):
+        """Filtert AB-Spuren nach dem aktuellen Farmer"""
+        farmer = _get_farmer_from_request(self.request)
+        if farmer:
+            return ABTrace.objects.filter(farmer=farmer)
+        return ABTrace.objects.none()
 
     @action(
         detail=False,
@@ -285,12 +328,25 @@ class ABTraceViewSet(viewsets.ModelViewSet):
         xml_file = upload_serializer.validated_data["file"]
         field_id = upload_serializer.validated_data["field_id"]
 
+        farmer = _get_farmer_from_request(request)
+        if not farmer:
+            return Response(
+                {"error": "Kein Farmer für deine Email gefunden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         try:
             field = FieldBoundary.objects.get(id=field_id)
+            # Prüfung: gehört das Feld auch zu diesem Farmer?
+            if field.farmer != farmer:
+                return Response(
+                    {"error": "Du darfst nur in deinen eigenen Feldern Spuren hochladen"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
         except FieldBoundary.DoesNotExist:
             return Response({"error": "Feldgrenze nicht gefunden."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Alte Spuren für das Feld löschen!
+        # Alte Spuren löschen
         ABTrace.objects.filter(field=field).delete()
 
         try:
@@ -316,6 +372,7 @@ class ABTraceViewSet(viewsets.ModelViewSet):
                             field=field,
                             trace_data={"name": ggp_name, "points": points},
                             distance_km=_distance_km(points),
+                            farmer=farmer,  # ← Farmer gesetzt
                         )
                         imported += 1
 
@@ -519,3 +576,5 @@ def _check_user_access_allowed_from_jwt(decoded_token):
         return False, "not allowed (missing access-code)"
     
     return True, None
+
+
