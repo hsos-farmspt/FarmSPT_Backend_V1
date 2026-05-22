@@ -24,3 +24,10 @@ docker-compose logs -f
 # in der VM:
 sudo docker-compose etc.....
 
+TOKEN=$(curl -s -X POST "https://api.farmspt.ai.edvsz.hs-osnabrueck.de/api/login/" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"hans","password":"password"}' | jq -r '.access_token')
+
+curl -X GET "https://api.farmspt.ai.edvsz.hs-osnabrueck.de/fieldboundaries/" \
+  -H "Authorization: Bearer $TOKEN"
+
