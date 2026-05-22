@@ -6,7 +6,8 @@ from django.conf import settings
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 import jwt
 import logging
-from rest_framework.permissions import BasePermission
+import xml.etree.ElementTree as ET
+from math import radians, sin, cos, sqrt, atan2
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -83,3 +84,186 @@ class KeycloakOIDCAuthenticationBackend(OIDCAuthenticationBackend):
         
         return user_info
 
+class helperMethods:
+    """Hilfsmethoden für Authentifizierung und Datenverarbeitung"""
+    
+    @staticmethod
+    def get_farmer_from_request(request):
+        """
+        Helper: Holt den Farmer basierend auf der Email des authentifizierten Users
+        Nutzt die Email aus dem Keycloak-Token (via request.user.email)
+        
+        Returns: Farmer Objekt oder None
+        """
+        from API.django_api.models import Farmer
+        
+        user = request.user
+        if not user or not user.email:
+            return None
+        
+        try:
+            farmer = Farmer.objects.get(email=user.email)
+            return farmer
+        except Farmer.DoesNotExist:
+            return None
+    
+    @staticmethod
+    def parse_points_from_lsg(lsg_element):
+        """
+        Parsed Punkte aus XML LSG-Element
+        
+        Args:
+            lsg_element: XML Element vom Typ LSG
+            
+        Returns:
+            List von [lat, lon] Koordinaten
+        """
+        points = []
+        if lsg_element is None:
+            return points
+
+        for pnt in lsg_element.findall("PNT"):
+            lat = pnt.get("C")
+            lon = pnt.get("D")
+            if lat is None or lon is None:
+                continue
+            points.append([float(lat), float(lon)])
+        return points
+    
+    @staticmethod
+    def distance_km(points):
+        """
+        Berechnet Haversine-Entfernung zwischen Punkten in km
+        
+        Args:
+            points: List von [lat, lon] Koordinaten
+            
+        Returns:
+            Gesamtdistanz in km (gerundet auf 4 Dezimalstellen)
+        """
+        if len(points) < 2:
+            return 0.0
+
+        r = 6371.0  # Erdradius in km
+        total = 0.0
+        for i in range(1, len(points)):
+            lat1, lon1 = points[i - 1]
+            lat2, lon2 = points[i]
+
+            dlat = radians(lat2 - lat1)
+            dlon = radians(lon2 - lon1)
+
+            a = (
+                sin(dlat / 2) ** 2
+                + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+            )
+            c = 2 * atan2(sqrt(a), sqrt(1 - a))
+            total += r * c
+
+        return round(total, 4)
+    
+    @staticmethod
+    def add_user_to_manufacturers_group(user_id):
+        """
+        Helper-Methode: Fügt einen User zur 'Manufacturers' Gruppe hinzu
+        
+        Args:
+            user_id: Die Keycloak User ID
+            
+        Returns:
+            (bool, str) - (success, message)
+        """
+        try:
+            # Erst einen Admin-Token holen
+            token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
+            
+            token_response = requests.post(
+                token_url,
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": settings.KEYCLOAK_CLIENT_ID,
+                    "client_secret": settings.KEYCLOAK_CLIENT_SECRET,
+                },
+                verify=False,
+            )
+            
+            if token_response.status_code != 200:
+                return False, "Keycloak admin token konnte nicht geholt werden"
+            
+            access_token = token_response.json()["access_token"]
+            
+            # Alle Gruppen abrufen
+            groups_url = f"{settings.KEYCLOAK_URL}/admin/realms/{settings.KEYCLOAK_REALM}/groups"
+            groups_response = requests.get(
+                groups_url,
+                headers={"Authorization": f"Bearer {access_token}"},
+                verify=False
+            )
+            
+            manufacturers_group = None
+            for group in groups_response.json():
+                if group['name'] == 'Manufacturers':
+                    manufacturers_group = group
+                    break
+            
+            if not manufacturers_group:
+                return False, "Manufacturers Gruppe existiert nicht in Keycloak"
+            
+            # User zur Gruppe hinzufügen
+            group_id = manufacturers_group['id']
+            add_url = f"{settings.KEYCLOAK_URL}/admin/realms/{settings.KEYCLOAK_REALM}/users/{user_id}/groups/{group_id}"
+            
+            add_response = requests.put(
+                add_url,
+                headers={"Authorization": f"Bearer {access_token}"},
+                verify=False
+            )
+            
+            if add_response.status_code not in [201, 204, 200]:
+                return False, f"User zu Gruppe hinzufügen fehlgeschlagen: {add_response.text}"
+            
+            return True, "User zu Manufacturers Gruppe hinzugefügt"
+            
+        except Exception as e:
+            logger.error(f"Fehler beim Hinzufügen zur Gruppe: {e}")
+            return False, str(e)
+    
+    @staticmethod
+    def check_user_access_allowed_from_jwt(decoded_token):
+        """
+        Überprüft Zugriff direkt aus dem JWT heraus
+        
+        Zugriff wird VERWEIGERT wenn:
+        - User in '/Manufacturers' Gruppe ist (beachte Leading Slash!)
+        - ODER User hat 'default-deny' Rolle
+        
+        Args:
+            decoded_token: Dekodierter JWT Token (dict)
+            
+        Returns:
+            (bool, str) - (is_allowed, error_message)
+        """
+        # Gruppen aus JWT (mit Leading Slash!)
+        groups = decoded_token.get('groups', [])
+        
+        # Rollen aus JWT (realm_access)
+        realm_access = decoded_token.get('realm_access', {})
+        roles = realm_access.get('roles', [])
+        
+        # Debug: Ausgeben für Testing
+        logger.debug(f"Groups: {groups}")
+        logger.debug(f"Roles: {roles}")
+        
+        # Überprüfung: User in Manufacturers Gruppe? (mit Slash!)
+        is_manufacturer = '/Manufacturers' in groups
+        
+        # Überprüfung: User hat 'default-deny' Rolle?
+        has_default_deny = 'default-deny' in roles
+        
+        # Zugriff verweigern wenn eine Bedingung zutrifft
+        if is_manufacturer or has_default_deny:
+            logger.warning(f"Access denied: manufacturer={is_manufacturer}, default-deny={has_default_deny}")
+            return False, "not allowed (missing access-code)"
+        
+        return True, None
+    

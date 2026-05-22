@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User,Group
 from rest_framework import serializers
-from .models import FieldBoundary, ABTrace, Role
+from .models import FieldBoundary, ABTrace, Role, Farmer, Manufacturer, SyncPartner, FieldData
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -37,6 +37,39 @@ class RoleSerializer(serializers.ModelSerializer):
         model = Role
         fields = ['id', 'name', 'description']
 
+class FarmerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Farmer
+        fields = ['id', 'name', 'email', 'created_at', 'updated_at']
 
+class ManufacturerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Manufacturer
+        fields = ['id', 'name', 'created_at', 'updated_at']
 
+class RoleSerializerForSyncPartner(serializers.ModelSerializer):
+    """Nested Serializer für Role in SyncPartner"""
+    class Meta:
+        model = Role
+        fields = ['id', 'name']
+
+class SyncPartnerSerializer(serializers.ModelSerializer):
+    role = RoleSerializerForSyncPartner(read_only=True)
+    farmer = FarmerSerializer(read_only=True)
+    manufacturer = ManufacturerSerializer(read_only=True)
     
+    class Meta:
+        model = SyncPartner
+        fields = ['id', 'farmer', 'manufacturer', 'role', 'created_at', 'updated_at']
+
+class FieldDataSerializer(serializers.ModelSerializer):
+    farmer = FarmerSerializer(read_only=True)
+    syncPartner = SyncPartnerSerializer(read_only=True)
+    
+    class Meta:
+        model = FieldData
+        fields = ['id', 'farmer', 'syncPartner']
+
+
+
+
