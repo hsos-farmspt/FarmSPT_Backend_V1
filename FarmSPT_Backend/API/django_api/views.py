@@ -310,8 +310,17 @@ def keycloak_create_manufacturer(request):
         user_id = keycloak_admin.create_user(user_data)
         
         #TODO: hilfmethode einfügen die mit subadmin Manufactuer_receiver und manufactuer_produce Gruppen dynamisch erstellt und zuweist
+        
+        #receiver group erstellen
+        receiver_group_id = keycloak_admin.create_group({"name": f"{username}_receiver"})
+        #producer group erstellen
+        producer_group_id = keycloak_admin.create_group({"name": f"{username}_producer"})
 
-        #  User zur Manufacturers Gruppe hinzufügen
+        # User zu den Gruppen hinzufügen
+        keycloak_admin.group_user_add(user_id, receiver_group_id)
+        keycloak_admin.group_user_add(user_id, producer_group_id)
+
+        # User zur Manufacturers Gruppe hinzufügen
         success, message = helperMethods.add_user_to_manufacturers_group(user_id)
         
         if not success:
