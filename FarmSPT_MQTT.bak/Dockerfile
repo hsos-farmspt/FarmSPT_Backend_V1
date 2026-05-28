@@ -10,6 +10,7 @@ ARG OAUTH_CLIENT_ID=mqtt-api
 ARG OAUTH_CLIENT_SECRET=xShUl56DbPaMtXb8JMLzH2HIfEDh0fiz
 ARG OAUTH_TOKEN_URL=https://keycloak.farmspt.ai.edvsz.hs-osnabrueck.de/realms/FarmSPT_extension_mqtt/protocol/openid-connect/token
 
+
 FROM alpine:3.20
 ARG MOSQUITTO_VERSION
 ARG OAUTH_PLUGIN_VERSION
@@ -69,14 +70,35 @@ RUN apk add --no-cache \
 RUN mkdir -p /mosquitto/config /mosquitto/data /mosquitto/log
 
 # Create mosquitto system user
-RUN addgroup -S mosquitto
-RUN adduser -S -D -H -s /sbin/nologin -G mosquitto -g mosquitto mosquitto
-RUN chown -R mosquitto:mosquitto /mosquitto
+RUN addgroup -S mosquitto \
+    && adduser -S -D -H -s /sbin/nologin -G mosquitto -g mosquitto mosquitto \
+    && chown -R mosquitto:mosquitto /mosquitto
 
 # Add default configuration
-COPY mosquitto-example.conf /mosquitto/config/mosquitto.conf
+COPY FarmSPT_MQTT/mosquitto-example.conf /mosquitto/config/mosquitto.conf
+
+# Write mosquitto configuration directly
+#RUN cat > /mosquitto/config/mosquitto.conf << 'EOF'
+#listener 1883 0.0.0.0
+
+#plugin /usr/local/lib/mosquitto-oauth-plugin.so
+
+#plugin_opt_oauth_jwt_key ${OAUTH_JWT_KEY}
+#plugin_opt_oauth_jwt_validate_exp ${OAUTH_JWT_VALIDATE_EXP}
+
+#plugin_opt_oauth_client_id ${OAUTH_CLIENT_ID}
+#plugin_opt_oauth_client_secret ${OAUTH_CLIENT_SECRET}
+#plugin_opt_oauth_token_url ${OAUTH_TOKEN_URL}
+
+#log_dest file /mosquitto/log/mosquitto.log
+#log_type all
+#EOF
+
+# Set proper permissions for mosquitto config
+#RUN chown mosquitto:mosquitto /mosquitto/config/mosquitto.conf \
+   # && chmod 644 /mosquitto/config/mosquitto.conf
 
 # Set up entry point
 VOLUME ["/mosquitto/data", "/mosquitto/log"]
-EXPOSE 8883
+EXPOSE 1883
 CMD ["/usr/local/sbin/mosquitto", "-c", "/mosquitto/config/mosquitto.conf"]
