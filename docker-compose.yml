@@ -133,5 +133,28 @@ services:
       - "traefik.http.routers.backend.service=backend"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
 
+  mqtt:
+    build:
+      context: .
+      dockerfile: FarmSPT_MQTT/Dockerfile
+    container_name: farmspt_mqtt
+    restart: always
+    ports:
+      - "1883:1883"
+    environment:
+      DEBUG: "True"
+      OAUTH_JWT_KEY: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA05N8IfsW+GSJ26Z+nZU+ayU4e5hFSVZHMFTXgzPDd709e3BzdCtbfHY/nfSExD2xzkRzZoC0SdTAhjskg2r3LGqtJuuMjrmhYldVh3fRX1Oyo8nQum+t9oxGWJGodeZXBb9cKvktgKaQi2tmmNe2vVQSX1yEBwIPPO14YE+4dV+fVKjqJKvvlhUuExpF3IaTdlUbr2EsV3irN3xYIcaUlsVNLDHPgG8TZJZy0A/1qXV4xHJhIMuc8APHnaOTjIkJKRx13jQLHAzYTSkZJvi6AXc1slHN2kx/dqZd3gI3MDMZMc+I+P8aCnFsj981SsOqY8mxj7BvDCzmDZS9yT4bCwIDAQAB"
+      OAUTH_JWT_VALIDATE_EXP: "False"
+      OAUTH_TOKEN_URL: "https://keycloak.${PROJECT_BASE_URL}/realms/FarmSPT_v1/protocol/openid-connect/token"
+      KEYCLOAK_CLIENT_ID: "mqtt-api"
+      KEYCLOAK_CLIENT_SECRET: "ENj82GqnPkMfG3DE5FUN6YnffK9N48bh"
+    depends_on:
+       db:
+        condition: service_healthy
+       keycloak:
+        condition: service_started
+
+   
+
 volumes:
   postgres_data:
