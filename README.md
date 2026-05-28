@@ -31,3 +31,9 @@ TOKEN=$(curl -s -X POST "https://api.farmspt.ai.edvsz.hs-osnabrueck.de/api/login
 curl -X GET "https://api.farmspt.ai.edvsz.hs-osnabrueck.de/fieldboundaries/" \
   -H "Authorization: Bearer $TOKEN"
 
+
+# via wsl for mqtt
+mosquitto_pub -h mqtt.farmspt.ai.edvsz.hs-osnabrueck.de -p 443 --tls-use-os-certs -u "herstellera" -P "password" -t "/data/herstellera/test" -m "test"
+
+mosquitto_sub -h mqtt.farmspt.ai.edvsz.hs-osnabrueck.de -p 443 --tls-use-os-certs -u "herstellera" -P "password" -t "/data/herstellera/test" 
+
