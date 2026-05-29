@@ -370,46 +370,78 @@ def token_login(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    try:
-        # Token vom Keycloak anfordern
-        token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
-        
-        payload = {
-            'grant_type': 'password',
-            'client_id': settings.OIDC_RP_CLIENT_ID,
-            'client_secret': settings.OIDC_RP_CLIENT_SECRET,
-            'username': username,
-            'password': password,
-            'scope': 'openid profile email'
-        }
-        
-        response = requests.post(token_url, data=payload, verify=False)
-        
-        if response.status_code != 200:
-            return Response(
-                {"error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        
-        token_data = response.json()
-        access_token = token_data.get('access_token')
-        
-        # JWT dekodieren (ohne Signatur-Validierung für dev/local)
-        decoded_token = jwt.decode(access_token, options={"verify_signature": False})
-        
-        # Zugriff überprüfen MIT JWT-Daten
-        is_allowed, error_message = helperMethods.check_user_access_allowed_from_jwt(decoded_token)
-        
-        if not is_allowed:
-            return Response(
-                {"error": error_message},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        return Response(token_data, status=status.HTTP_200_OK)
-        
-    except Exception as e:
+    decoded_token, error_msg = helperMethods.authenticate_user_from_credentials(username, password)
+    
+    if error_msg:
+        status_code = status.HTTP_401_UNAUTHORIZED if error_msg == "Invalid credentials" else status.HTTP_403_FORBIDDEN
+        return Response({"error": error_msg}, status=status_code)
+    
+    # Token-Daten zurückgeben
+    token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
+    payload = {
+        'grant_type': 'password',
+        'client_id': settings.OIDC_RP_CLIENT_ID,
+        'client_secret': settings.OIDC_RP_CLIENT_SECRET,
+        'username': username,
+        'password': password,
+        'scope': 'openid profile email'
+    }
+    response = requests.post(token_url, data=payload, verify=False)
+    token_data = response.json()
+    
+    return Response(token_data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_farmers_keycloakToDjango(request):
+    """
+    Erstellt einen Farmer in Django basierend auf Keycloak-Authentifizierung
+    
+    POST /api/keycloak/farmers/
+    
+    Erforderliche Parameter (JSON):
+    {
+        "username": "john@example.com",
+        "password": "password123"
+    }
+    """
+    from API.django_api.models import Farmer
+    
+    username = request.data.get('username')
+    password = request.data.get('password')
+    
+    if not username or not password:
         return Response(
-            {"error": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": "username and password required"},
+            status=status.HTTP_400_BAD_REQUEST
         )
+    
+    decoded_token, error_msg = helperMethods.authenticate_user_from_credentials(username, password)
+    
+    if error_msg:
+        status_code = status.HTTP_401_UNAUTHORIZED if error_msg == "Invalid credentials" else status.HTTP_403_FORBIDDEN
+        return Response({"error": error_msg}, status=status_code)
+    
+    # Farmer erstellen/aktualisieren
+    email = decoded_token.get('email')
+    preferred_username = decoded_token.get('preferred_username')
+    given_name = decoded_token.get('given_name', '')
+    
+    farmer, created = Farmer.objects.get_or_create(
+        email=email,
+        defaults={
+            'name': f"{given_name}" if given_name else preferred_username
+        }
+    )
+    
+    return Response(
+        {
+            "status": "created" if created else "updated",
+            "farmer_id": str(farmer.id),
+            "farmer_name": farmer.name,
+            "email": farmer.email,
+            "message": f"Farmer {'created' if created else 'already exists'}"
+        },
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    )

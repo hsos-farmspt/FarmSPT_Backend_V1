@@ -45,7 +45,8 @@ def api_root(request, format=None):
             "traces": reverse("abtrace-list", request=request, format=format),
             "login": reverse("token_login", request=request, format=format),
             "keycloak_create_manufacturer": reverse("keycloak_create_manufacturer", request=request, format=format),
-            "oidc": request.build_absolute_uri("/oidc/authenticate/"),
+            "create_farmers_keycloakToDjango": reverse("create_farmers_keycloakToDjango", request=request, format=format),
+            "oidc **deprecated**": request.build_absolute_uri("/oidc/authenticate/"),
         }
     )
 
@@ -59,5 +60,6 @@ urlpatterns = [
     path("api/login/", views.token_login, name="token_login"),
     path("oidc/", include("mozilla_django_oidc.urls")),
     path("api/keycloak/manufacturers/", views.keycloak_create_manufacturer, name="keycloak_create_manufacturer"),
+    path("api/keycloak/farmers/", views.create_farmers_keycloakToDjango, name="create_farmers_keycloakToDjango"),
     path("", include(router.urls)),
 ]

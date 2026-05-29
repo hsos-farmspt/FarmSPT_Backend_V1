@@ -266,4 +266,52 @@ class helperMethods:
             return False, "not allowed (missing access-code)"
         
         return True, None
-    
+
+    @staticmethod
+    def authenticate_user_from_credentials(username, password):
+        """
+        Authentifiziert einen User mit Credentials gegen Keycloak
+        
+        Args:
+            username: Username oder Email
+            password: Passwort
+            
+        Returns:
+            (dict, str) - (decoded_token, error_message)
+            Bei Erfolg: (decoded_token_dict, None)
+            Bei Fehler: (None, error_message)
+        """
+        try:
+            token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
+            
+            payload = {
+                'grant_type': 'password',
+                'client_id': settings.OIDC_RP_CLIENT_ID,
+                'client_secret': settings.OIDC_RP_CLIENT_SECRET,
+                'username': username,
+                'password': password,
+                'scope': 'openid profile email'
+            }
+            
+            response = requests.post(token_url, data=payload, verify=False)
+            
+            if response.status_code != 200:
+                return None, "Invalid credentials"
+            
+            token_data = response.json()
+            access_token = token_data.get('access_token')
+            
+            # JWT dekodieren
+            decoded_token = jwt.decode(access_token, options={"verify_signature": False})
+            
+            # Zugriff überprüfen
+            is_allowed, error_msg = helperMethods.check_user_access_allowed_from_jwt(decoded_token)
+            if not is_allowed:
+                return None, error_msg
+            
+            return decoded_token, None
+            
+        except Exception as e:
+            logger.error(f"Authentication error: {e}")
+            return None, str(e)
+
