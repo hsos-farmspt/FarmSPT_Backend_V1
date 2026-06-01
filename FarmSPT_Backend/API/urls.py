@@ -39,14 +39,27 @@ FRONTEND_DIR = settings.BASE_DIR / "API" / "_frontend_test"
 def api_root(request, format=None):
     return Response(
         {
+            "---------------------------Django:---------------------------------------------": " ",
+        
             "users": reverse("user-list", request=request, format=format),
             "groups": reverse("group-list", request=request, format=format),
+            "admin": "https://api.farmspt.ai.edvsz.hs-osnabrueck.de/admin/",
+
+            "--------------------------FarmSPT-Data:----------------------------------------": " ",
+            
             "fieldboundaries": reverse("fieldboundary-list", request=request, format=format),
             "traces": reverse("abtrace-list", request=request, format=format),
+
+            "---------------------------Keycloak-Authentication:----------------------------": " ",
             "login": reverse("token_login", request=request, format=format),
             "keycloak_create_manufacturer": reverse("keycloak_create_manufacturer", request=request, format=format),
             "create_farmers_keycloakToDjango": reverse("create_farmers_keycloakToDjango", request=request, format=format),
-            "oidc **deprecated**": request.build_absolute_uri("/oidc/authenticate/"),
+
+            "---------------------------Frontend:--------------------------------------------": " ",
+            "Viewer:": "https://frontend.farmspt.ai.edvsz.hs-osnabrueck.de/",
+
+            "---------------------------OIDC (Deprecated):-----------------------------------": " ",
+            "oidc ###deprecated###": request.build_absolute_uri("/oidc/authenticate/"),
         }
     )
 
