@@ -445,3 +445,71 @@ def create_farmers_keycloakToDjango(request):
         },
         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
     )
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def add_user_to_group(request):
+    """
+    Fügt einen User einer Keycloak-Gruppe hinzu
+    
+    POST /api/keycloak/add-user-to-group/
+    
+    Erforderliche Parameter (JSON):
+    {
+        "user_id": "user-uuid",
+        "group_name": "groupname"
+    }
+    """
+    user_id = request.data.get("user_id")
+    group_name = request.data.get("group_name")
+    
+    if not user_id or not group_name:
+        return Response(
+            {"error": "user_id and group_name are required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        keycloak_admin = KeycloakAdmin(
+            server_url=settings.KEYCLOAK_URL,
+            client_id=settings.KEYCLOAK_CLIENT_ID,
+            client_secret_key=settings.KEYCLOAK_CLIENT_SECRET,
+            realm_name=settings.KEYCLOAK_REALM,
+            verify=False
+        )
+        
+        # Gruppe nach Name finden
+        groups = keycloak_admin.get_groups()
+        group_id = None
+        
+        for group in groups:
+            if group['name'] == group_name:
+                group_id = group['id']
+                break
+        
+        if not group_id:
+            return Response(
+                {"error": f"Group '{group_name}' not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        keycloak_admin.group_user_add(user_id, group_id)
+        
+        return Response(
+            {
+                "status": "success",
+                "message": f"User {user_id} added to group {group_name}"
+            },
+            status=status.HTTP_200_OK
+        )
+        
+    except KeycloakGetError as e:
+        return Response(
+            {"error": f"Keycloak error: {e}"},
+            status=status.HTTP_502_BAD_GATEWAY
+        )
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
