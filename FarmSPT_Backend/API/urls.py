@@ -44,6 +44,7 @@ def api_root(request, format=None):
             "users": reverse("user-list", request=request, format=format),
             "groups": reverse("group-list", request=request, format=format),
             "admin": "https://api.farmspt.ai.edvsz.hs-osnabrueck.de/admin/",
+            "mqtt-dashboard (early access/under development)": reverse("mqtt_dashboard", request=request, format=format),
 
             "--------------------------FarmSPT-Data:----------------------------------------": " ",
             
@@ -78,4 +79,5 @@ urlpatterns = [
     path("api/keycloak/add-user-to-group/", views.add_user_to_group, name="add_user_to_group"),
 
     path("", include(router.urls)),
+    path("mqtt-dashboard/", views.DashboardView.as_view(), name='mqtt_dashboard'),
 ]

@@ -169,5 +169,7 @@ services:
       - "traefik.tcp.routers.mqtt.service=mqtt-tcp"
       - "traefik.tcp.services.mqtt-tcp.loadbalancer.server.port=8883"
 
+      
+
 volumes:
   postgres_data:

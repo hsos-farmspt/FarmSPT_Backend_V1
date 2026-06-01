@@ -15,6 +15,8 @@ import requests
 from django.conf import settings
 import jwt
 from .authentication import helperMethods
+from django.http import HttpResponse
+from django.views.generic import TemplateView
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -513,3 +515,10 @@ def add_user_to_group(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+class DashboardView(TemplateView):
+    template_name = 'mqtt_dashboard.html'
+
+
+
+
