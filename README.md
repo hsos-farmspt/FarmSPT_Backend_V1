@@ -37,3 +37,6 @@ mosquitto_pub -h mqtt.farmspt.ai.edvsz.hs-osnabrueck.de -p 443 --tls-use-os-cert
 
 mosquitto_sub -h mqtt.farmspt.ai.edvsz.hs-osnabrueck.de -p 443 --tls-use-os-certs -u "herstellera" -P "password" -t "/data/herstellera/test" 
 
+start mqtt backend client.
+docker compose exec backend python /app/mqtt_backend_client.py
+
