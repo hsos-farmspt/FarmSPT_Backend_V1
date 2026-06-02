@@ -78,15 +78,27 @@ class ABTrace(models.Model):
 
     def __str__(self):
         return f"Trace for {self.field.name}"
+
+
+
+
+class MQTTMessage(models.Model):
+    topic = models.CharField(max_length=255)
+    payload = models.JSONField()
+    qos = models.IntegerField(default=1)
+    timestamp = models.DateTimeField(auto_now_add=True)
     
-
+    class Meta:
+        ordering = ['-timestamp']
     
-  
+    def __str__(self):
+        return f"{self.topic}"
 
 
 
 
 
-   
-    
+
+
+
 

@@ -7,8 +7,8 @@ from rest_framework.permissions import IsAdminUser, AllowAny
 from API.django_api.serializers import ABTraceXMLUploadSerializer, FieldBoundaryXMLUploadSerializer, GroupSerializer, UserSerializer, FieldBoundarySerializer, ABTraceSerializer
 from API.django_api.models import FieldBoundary, ABTrace
 import xml.etree.ElementTree as ET
-from .models import Role
-from .serializers import RoleSerializer
+from .models import MQTTMessage, Role
+from .serializers import MQTTMessageSerializer, RoleSerializer
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakGetError
 import requests
@@ -519,6 +519,72 @@ def add_user_to_group(request):
 class DashboardView(TemplateView):
     template_name = 'html/mqtt_dashboard.html'
 
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def mqtt_message(request):
+    """
+    Endpoint zum Empfang von MQTT-Nachrichten
+    
+    POST /api/mqtt/
+    
+    Erforderliche Parameter (JSON):
+    {
+        "topic": "mqtt/topic",
+        "payload": { ... },  # JSON-Objekt
+        "qos": 1,
+        "timestamp": "2024-06-01T12:00:00Z"
+    }
+    """
+    topic = request.data.get('topic')
+    payload = request.data.get('payload')
+    qos = request.data.get('qos', 1)
+    
+    # Validierung
+    if not topic or payload is None:
+        return Response(
+            {"error": "topic and payload are required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # MQTT-Nachricht speichern (timestamp wird automatisch gesetzt)
+        message = MQTTMessage.objects.create(
+            topic=topic,
+            payload=payload,
+            qos=qos
+        )
+        
+        print(f"Received MQTT message - Topic: {topic}, Payload: {payload}, QoS: {qos}")
+        
+        return Response({
+            "status": "success",
+            "message_id": str(message.id),
+            "timestamp": message.timestamp
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def mqtt_getMessages(request):
+    try:
+        messages = MQTTMessage.objects.order_by('-timestamp')[:100]
+        serializer = MQTTMessageSerializer(messages, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 

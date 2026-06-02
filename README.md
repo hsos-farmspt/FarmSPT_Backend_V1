@@ -12,17 +12,17 @@
 
 #useful commands:
 # Migrationen ausführen 1/2
-docker-compose exec backend python manage.py makemigrations
+docker compose exec backend python manage.py makemigrations
 # Migrationen ausführen 2/2
-docker-compose exec backend python manage.py migrate
+docker compose exec backend python manage.py migrate
 
-docker-compose up --build -d
+docker compose up --build -d
 
 # Logs checken
-docker-compose logs -f
+docker compose logs -f
 
 # in der VM:
-sudo docker-compose etc.....
+sudo docker ompose etc.....
 
 TOKEN=$(curl -s -X POST "https://api.farmspt.ai.edvsz.hs-osnabrueck.de/api/login/" \
   -H "Content-Type: application/json" \

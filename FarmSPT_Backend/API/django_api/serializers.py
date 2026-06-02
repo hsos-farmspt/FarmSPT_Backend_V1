@@ -71,5 +71,10 @@ class FieldDataSerializer(serializers.ModelSerializer):
         fields = ['id', 'farmer', 'syncPartner']
 
 
-
+class MQTTMessageSerializer(serializers.Serializer):
+    topic = serializers.CharField(max_length=255)
+    payload = serializers.JSONField()
+    qos = serializers.IntegerField(default=1)
+    timestamp = serializers.DateTimeField()
+    
 
