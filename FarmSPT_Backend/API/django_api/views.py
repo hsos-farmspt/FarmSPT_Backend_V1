@@ -517,7 +517,7 @@ def add_user_to_group(request):
         )
 
 class DashboardView(TemplateView):
-    template_name = 'mqtt_dashboard.html'
+    template_name = 'html/mqtt_dashboard.html'
 
 
 

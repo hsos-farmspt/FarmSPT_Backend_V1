@@ -1,0 +1,61 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmSPT Dashboard</title>
+    <link rel="stylesheet" href="{% static 'css/mqtt_dashboard.css' %}">
+</head>
+<body>
+    <header>
+        <img src="{% static 'images/logo.png' %}" alt="FarmSPT">
+        <h1>MQTT Dashboard</h1>
+    </header>
+    
+    <main>
+        <div class="chat-container">
+            <div class="chat-header">MQTT Transport Messages</div>
+            <div class="chat-content">
+                <!-- Message List (linke Seite - 1/8) -->
+                <div class="message-list">
+                    <div class="message-item active" data-id="1">
+                        <div class="message-preview">Message 1</div>
+                        <div class="message-time">10:30</div>
+                    </div>
+                    <div class="message-item" data-id="2">
+                        <div class="message-preview">Message 2</div>
+                        <div class="message-time">10:35</div>
+                    </div>
+                    <div class="message-item" data-id="3">
+                        <div class="message-preview">Message 3</div>
+                        <div class="message-time">10:40</div>
+                    </div>
+                </div>
+                
+                <!-- Message Detail (rechte Seite - 7/8) -->
+                <div class="message-detail">
+                    <div class="detail-header">
+                        <h2>Message 1</h2>
+                        <span class="detail-time">13:60 </span>
+                    </div>
+                    <div class="detail-content">
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
+                        Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+                        Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris 
+                        nisi ut aliquip ex ea commodo consequat.</p>
+                        
+                        <div class="detail-metadata">
+                            <div><strong>Topic:</strong> farm/sensor/temperature</div>
+                            <div><strong>Payload:</strong> {"temp": 25.5, "humidity": 65}</div>
+                            <div><strong>QoS:</strong> 1</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script src="{% static 'js/mqtt_dashboard.js' %}"></script>
+</body>
+</html>
