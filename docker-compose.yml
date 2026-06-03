@@ -107,6 +107,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    volumes:
+     - ./FarmSPT_Backend:/app  
     container_name: farmspt_backend
     restart: always
     expose:

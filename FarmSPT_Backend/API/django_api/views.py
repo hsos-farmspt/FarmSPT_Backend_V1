@@ -540,6 +540,8 @@ def mqtt_message(request):
     topic = request.data.get('topic')
     payload = request.data.get('payload')
     qos = request.data.get('qos', 1)
+    metadata =request.data.get('metadata', {})
+    timestamp = request.data.get('timestamp')  
     
     # Validierung
     if not topic or payload is None:
@@ -553,7 +555,9 @@ def mqtt_message(request):
         message = MQTTMessage.objects.create(
             topic=topic,
             payload=payload,
-            qos=qos
+            qos=qos,
+            timestamp=timestamp,
+            metadata=metadata
         )
         
         print(f"Received MQTT message - Topic: {topic}, Payload: {payload}, QoS: {qos}")

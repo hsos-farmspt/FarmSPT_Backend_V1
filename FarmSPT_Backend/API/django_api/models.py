@@ -87,6 +87,8 @@ class MQTTMessage(models.Model):
     payload = models.JSONField()
     qos = models.IntegerField(default=1)
     timestamp = models.DateTimeField(auto_now_add=True)
+    metadata = models.JSONField(null=True, blank=True)  # Optionales Feld für zusätzliche Metadaten
+    
     
     class Meta:
         ordering = ['-timestamp']

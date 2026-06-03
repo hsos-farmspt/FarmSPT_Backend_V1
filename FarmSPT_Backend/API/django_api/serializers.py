@@ -76,5 +76,6 @@ class MQTTMessageSerializer(serializers.Serializer):
     payload = serializers.JSONField()
     qos = serializers.IntegerField(default=1)
     timestamp = serializers.DateTimeField()
+    metadata = serializers.JSONField(required=False)
     
 
