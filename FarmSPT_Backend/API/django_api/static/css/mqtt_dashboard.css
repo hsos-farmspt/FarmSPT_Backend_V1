@@ -6,6 +6,7 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         
         header {
@@ -31,6 +32,7 @@
             display: flex;
             padding: 20px;
             gap: 20px;
+            overflow: hidden;
         }
         
         .chat-container {
@@ -61,7 +63,7 @@
         .message-list {
             width: 12.5%;
             border-right: 1px solid #e0e0e0;
-            overflow-y: auto;
+            overflow-y: scroll;
             background-color: #fafafa;
         }
         
@@ -144,6 +146,11 @@
             line-height: 1.8;
             color: #555;
             font-family: 'Courier New', monospace;
+            overflow-x: hidden;
+            overflow-y: auto;
+            white-space: pre-wrap;      /* Zeilenumbrüche erlauben */
+            word-break : break-word;     /* lange Strings umbrechen */
+            overflow-wrap: anywhere;
         }
         
         .detail-metadata div {
