@@ -17,6 +17,7 @@ async function loadMessages() {
         
         mqttMessages = await response.json();
         renderMessageList();
+        updateHeaderStats();
         
         // Wenn mindestens eine Message vorhanden, zeige die erste
         if (mqttMessages.length > 0 && !document.querySelector('.message-item.active')) {
@@ -26,6 +27,9 @@ async function loadMessages() {
         console.error('Fehler beim Abrufen der Messages:', error);
     }
 }
+
+
+
 
 function renderMessageList() {
     const messageList = document.querySelector('.message-list');
@@ -74,6 +78,27 @@ function renderMessageList() {
         messageList.appendChild(item);
     });
 }
+
+
+function updateHeaderStats() {
+    const timeElement = document.querySelector('.global-time');
+    const countElement = document.querySelector('.message-count');
+
+    timeElement.textContent =
+        new Date().toLocaleTimeString('de-DE');
+
+    if (mqttMessages.length) {
+        const latest = mqttMessages[0];
+
+        countElement.textContent =
+            `${mqttMessages.length} Messages | Last: ${
+                new Date(latest.timestamp).toLocaleTimeString('de-DE')
+            }`;
+    } else {
+        countElement.textContent = 'No Messages';
+    }
+}
+
 
 function updateDetailView(index) {
     const msg = mqttMessages[index];

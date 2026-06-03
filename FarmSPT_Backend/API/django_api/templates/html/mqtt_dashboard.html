@@ -16,7 +16,13 @@
     
     <main>
         <div class="chat-container">
-            <div class="chat-header">MQTT Transport Messages</div>
+            <div class="chat-header">
+                <span class="listener-indicator"> </span>
+                <span class="listener-text">Listening for Messages...</span>
+                <span class="global-time">--:--:--</span>
+                <span class="message-count">- Messages</span>
+                
+            </div>
             <div class="chat-content">
                 <!-- Message List (linke Seite - wird dynamisch gefüllt) -->
                 <div class="message-list">
@@ -26,11 +32,11 @@
                 <!-- Message Detail (rechte Seite - 7/8) -->
                 <div class="message-detail">
                     <div class="detail-header">
-                        <h2>-</h2>
+                        <h2>no message selected</h2>
                         <span class="detail-time">-</span>
                     </div>
                     <div class="detail-content">
-                        <p>Warte auf Messages...</p>
+                        <p>waiting for messages...</p>
                     </div>
                 </div>
             </div>
