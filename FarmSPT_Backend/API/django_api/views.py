@@ -535,6 +535,7 @@ def mqtt_message(request):
         "payload": { ... },  # JSON-Objekt
         "qos": 1,
         "timestamp": "2024-06-01T12:00:00Z"
+        "metadata": { ... }  # Optionales JSON-Objekt mit zusätzlichen Informationen
     }
     """
     topic = request.data.get('topic')
@@ -580,15 +581,19 @@ def mqtt_message(request):
 def mqtt_getMessages(request):
     try:
         messages = MQTTMessage.objects.order_by('-timestamp')[:100]
-        serializer = MQTTMessageSerializer(messages, many=True)
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
+        data = []
+        for m in messages:
+            data.append({
+                "id": str(m.id),
+                "topic": m.topic,
+                "payload": m.payload,
+                "qos": m.qos,
+                "timestamp": m.timestamp.isoformat() if hasattr(m.timestamp, "isoformat") else m.timestamp,
+                "metadata": m.metadata or {}
+            })
+        return Response(data, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response(
-            {"error": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 

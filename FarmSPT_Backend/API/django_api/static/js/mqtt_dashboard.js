@@ -1,40 +1,3 @@
-document.querySelectorAll('.message-item').forEach(item => {
-    item.addEventListener('click', function() {
-        // Remove active class from all items
-        document.querySelectorAll('.message-item').forEach(i => i.classList.remove('active'));
-        
-        // Add active class to clicked item
-        this.classList.add('active');
-        
-        // Update detail content (Placeholder-Logik)
-        const messageId = this.dataset.id;
-        updateDetailView(messageId, this.textContent);
-    });
-});
-
-function updateDetailView(id, title) {
-    const detailHeader = document.querySelector('.detail-header h2');
-    const detailContent = document.querySelector('.detail-content');
-    
-    detailHeader.textContent = title.split('\n')[0];
-    
-    // Placeholder-Inhalte
-    detailContent.innerHTML = `
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
-        Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
-        Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris 
-        nisi ut aliquip ex ea commodo consequat.</p>
-        
-        <div class="detail-metadata">
-            <div><strong>Message ID:</strong> ${id}</div>
-            <div><strong>Topic:</strong> farm/sensor/temperature</div>
-            <div><strong>Payload:</strong> {"temp": 25.5, "humidity": 65}</div>
-            <div><strong>Fieldboundary:</strong> Hansen_Feld A</div>
-            <div><strong>Timestamp:</strong> 2026-06-02T10:${30 + parseInt(id)}:00Z</div>
-        </div>
-    `;
-}
-
 let mqttMessages = [];
 
 // Beim Laden die Messages einmalig laden
@@ -67,59 +30,112 @@ async function loadMessages() {
 function renderMessageList() {
     const messageList = document.querySelector('.message-list');
     messageList.innerHTML = '';
-    
+
     mqttMessages.forEach((msg, index) => {
         const item = document.createElement('div');
         item.className = 'message-item' + (index === 0 ? ' active' : '');
         item.dataset.id = index;
-        
+
         const timestamp = new Date(msg.timestamp);
         const timeString = timestamp.toLocaleTimeString('de-DE');
         const topicPreview = msg.topic || 'Unknown';
-        
+
+        // metadata preview (example: fieldboundary or device)
+        let metaPreview = '';
+        if (msg.metadata) {
+            // Prüfe ob metadata ein Objekt ist
+            if (typeof msg.metadata === 'object' && msg.metadata !== null) {
+                if (msg.metadata.fieldboundary) metaPreview = msg.metadata.fieldboundary;
+                else if (msg.metadata.device) metaPreview = msg.metadata.device;
+                else {
+                    const keys = Object.keys(msg.metadata);
+                    if (keys.length) metaPreview = `${keys[0]}: ${msg.metadata[keys[0]]}`;
+                }
+            } else {
+                // Es ist ein String
+                metaPreview = String(msg.metadata).substring(0, 50); // Erste 50 Zeichen
+            }
+        }
+
         item.innerHTML = `
-            <div class="message-preview">${topicPreview}</div>
+            <div class="message-preview">
+                <div class="topic">${topicPreview}</div>
+                <div class="meta-preview">${metaPreview}</div>
+            </div>
             <div class="message-time">${timeString}</div>
         `;
-        
+
         item.addEventListener('click', function() {
             document.querySelectorAll('.message-item').forEach(i => i.classList.remove('active'));
             this.classList.add('active');
             updateDetailView(parseInt(this.dataset.id));
         });
-        
+
         messageList.appendChild(item);
     });
 }
 
 function updateDetailView(index) {
     const msg = mqttMessages[index];
-    if (!msg) return;
-    
+    if (!msg) {
+        console.error('Message not found at index:', index);
+        return;
+    }
+
     const detailHeader = document.querySelector('.detail-header h2');
     const detailContent = document.querySelector('.detail-content');
     const detailTime = document.querySelector('.detail-time');
-    
+
     const timestamp = new Date(msg.timestamp);
     const timeString = timestamp.toLocaleString('de-DE');
-    
-    detailHeader.textContent = msg.topic;
+
+    detailHeader.textContent = msg.topic || '-';
     detailTime.textContent = timeString;
+
+    let payloadStr = typeof msg.payload === 'string' 
+        ? msg.payload 
+        : JSON.stringify(msg.payload, null, 2);
+
+    // Metadata rendering - mit Typprüfung
+    let metadataHtml = '<div class="metadata-empty">—</div>';
     
-    // Payload formatieren - kann String oder JSON sein
-    let payloadStr;
-    if (typeof msg.payload === 'string') {
-        payloadStr = msg.payload;
-    } else {
-        payloadStr = JSON.stringify(msg.payload, null, 2);
+    if (msg.metadata) {
+        if (typeof msg.metadata === 'object' && msg.metadata !== null) {
+            if (Object.keys(msg.metadata).length > 0) {
+                metadataHtml = '<ul class="metadata-list">';
+                for (const [k, v] of Object.entries(msg.metadata)) {
+                    const displayValue = typeof v === 'object' ? JSON.stringify(v) : v;
+                    metadataHtml += `<li><strong>${k}:</strong> ${displayValue}</li>`;
+                }
+                metadataHtml += '</ul>';
+            }
+        } else {
+            metadataHtml = `<div class="metadata-string">${msg.metadata}</div>`;
+        }
     }
-    
+
     detailContent.innerHTML = `
-        <div class="detail-metadata">
-            <div><strong>Topic:</strong> ${msg.topic}</div>
-            <div><strong>Payload:</strong> <pre>${payloadStr}</pre></div>
-            <div><strong>QoS:</strong> ${msg.qos}</div>
-            <div><strong>Timestamp:</strong> ${timeString}</div>
+        <div class="detail-section">
+            <h3>Information</h3>
+            <div class="detail-metadata">
+                <div><strong>Topic:</strong> ${msg.topic}</div>
+                <div><strong>QoS:</strong> ${msg.qos}</div>
+                <div><strong>Timestamp:</strong> ${timeString}</div>
+            </div>
+        </div>
+        
+        <div class="detail-section">
+            <h3>Payload</h3>
+            <div class="detail-metadata">
+                <pre>${payloadStr}</pre>
+            </div>
+        </div>
+        
+        <div class="detail-section">
+            <h3>Metadata</h3>
+            <div class="detail-metadata">
+                ${metadataHtml}
+            </div>
         </div>
     `;
 }
