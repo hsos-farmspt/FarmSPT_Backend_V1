@@ -532,10 +532,10 @@ def mqtt_message(request):
     Erforderliche Parameter (JSON):
     {
         "topic": "mqtt/topic",
-        "payload": { ... },  # JSON-Objekt
+        "payload": "test-payload: nothing to see here. go away.", 
         "qos": 1,
-        "timestamp": "2024-06-01T12:00:00Z"
-        "metadata": { ... }  # Optionales JSON-Objekt mit zusätzlichen Informationen
+        "timestamp": "--:--:--",
+        "metadata": "data-type: testdata"  
     }
     """
     topic = request.data.get('topic')
@@ -594,6 +594,14 @@ def mqtt_getMessages(request):
         return Response(data, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def mqtt_latest_timestamp(request):
+    latest = MQTTMessage.objects.latest('timestamp')
+    return Response({
+        "timestamp": latest.timestamp.isoformat() if latest else None
+    })
 
 
 

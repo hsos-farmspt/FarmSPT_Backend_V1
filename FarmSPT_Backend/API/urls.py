@@ -83,6 +83,7 @@ urlpatterns = [
     path("api/mqtt-message/", views.mqtt_message, name="mqtt_message"),        
     path("api/mqtt-get-messages/", views.mqtt_getMessages, name="mqtt_getMessages"),  
     path("mqtt-dashboard/", views.DashboardView.as_view(), name='mqtt_dashboard'),  
+    path("api/mqtt-latest-timestamp/", views.mqtt_latest_timestamp, name="mqtt_latest_timestamp"),
 
     path("", include(router.urls)),
     

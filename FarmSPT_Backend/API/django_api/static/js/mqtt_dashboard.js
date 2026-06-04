@@ -1,10 +1,11 @@
 let mqttMessages = [];
+let lastKnownTimestamp = null;
 
 // Beim Laden die Messages einmalig laden
 document.addEventListener('DOMContentLoaded', function() {
     loadMessages();
     // Dann alle 2 Sekunden neu laden
-    setInterval(loadMessages, 2000);
+    setInterval(checkForUpdates, 2000);
 });
 
 async function loadMessages() {
@@ -28,8 +29,23 @@ async function loadMessages() {
     }
 }
 
+async function checkForUpdates() {
+    const response = await fetch('/api/mqtt-latest-timestamp/');
+    const { timestamp } = await response.json();
+    
+    if (lastKnownTimestamp === null) {
+        // Initial load
+        loadMessages();
+        lastKnownTimestamp = timestamp;
+    } else if (timestamp !== lastKnownTimestamp) {
+        // Neue Daten verfügbar
+        loadMessages();
+        lastKnownTimestamp = timestamp;
+    }
+}
 
-
+// Statt alle 2 Sek alles zu laden, nur Check
+setInterval(checkForUpdates, 2000);
 
 function renderMessageList() {
     const messageList = document.querySelector('.message-list');
