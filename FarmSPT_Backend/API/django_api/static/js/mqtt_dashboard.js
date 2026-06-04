@@ -21,9 +21,9 @@ async function loadMessages() {
         updateHeaderStats();
         
         // Wenn mindestens eine Message vorhanden, zeige die erste
-        if (mqttMessages.length > 0 && !document.querySelector('.message-item.active')) {
-            document.querySelector('.message-item')?.click();
-        }
+       // if (mqttMessages.length > 0 && !document.querySelector('.message-item.active')) {
+        //   document.querySelector('.message-item')?.click();
+        //}
     } catch (error) {
         console.error('Fehler beim Abrufen der Messages:', error);
     }
@@ -53,7 +53,7 @@ function renderMessageList() {
 
     mqttMessages.forEach((msg, index) => {
         const item = document.createElement('div');
-        item.className = 'message-item' + (index === 0 ? ' active' : '');
+        item.className = 'message-item' ;
         item.dataset.id = index;
 
         const timestamp = new Date(msg.timestamp);
