@@ -152,7 +152,7 @@ function updateDetailView(index) {
         <div class="detail-section">
             <h3>Payload</h3>
             <div class="detail-metadata">
-                <pre>${payloadStr}</pre>
+                <pre id="payload-pre"></pre>
             </div>
         </div>
         
@@ -163,4 +163,8 @@ function updateDetailView(index) {
             </div>
         </div>
     `;
+    
+    // Payload als plain text setzen (nicht als HTML) 
+    const preElement = detailContent.querySelector('#payload-pre');
+    preElement.textContent = payloadStr;
 }
