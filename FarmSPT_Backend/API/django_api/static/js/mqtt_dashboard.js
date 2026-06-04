@@ -164,6 +164,13 @@ function updateDetailView(index) {
                 <div><strong>Timestamp:</strong> ${timeString}</div>
             </div>
         </div>
+
+        <div class="detail-section">
+            <h3>Metadata</h3>
+            <div class="detail-metadata">
+                ${metadataHtml}
+            </div>
+        </div>
         
         <div class="detail-section">
             <h3>Payload</h3>
@@ -172,12 +179,7 @@ function updateDetailView(index) {
             </div>
         </div>
         
-        <div class="detail-section">
-            <h3>Metadata</h3>
-            <div class="detail-metadata">
-                ${metadataHtml}
-            </div>
-        </div>
+        
     `;
     
     // Payload als plain text setzen (nicht als HTML) 
