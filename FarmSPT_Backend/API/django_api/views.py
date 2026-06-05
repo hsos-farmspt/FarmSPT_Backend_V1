@@ -377,6 +377,9 @@ def token_login(request):
     if error_msg:
         status_code = status.HTTP_401_UNAUTHORIZED if error_msg == "Invalid credentials" else status.HTTP_403_FORBIDDEN
         return Response({"error": error_msg}, status=status_code)
+
+
+    #TODO: checken ob der Farmer in "Krone" gemappt ist und gibt den Manufacturertoken zurück um den Manufactuer login zu haben und nicht den farmer login  
     
     # Token-Daten zurückgeben
     token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
