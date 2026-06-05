@@ -63,6 +63,7 @@ class FieldBoundary(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, null=True, blank=True)
+    syncpartners = models.ManyToManyField(SyncPartner,null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -75,6 +76,7 @@ class ABTrace(models.Model):
     distance_km = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True)
     farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, null=True, blank=True)
+    syncpartners = models.ManyToManyField(SyncPartner,null=True, blank=True)
 
     def __str__(self):
         return f"Trace for {self.field.name}"

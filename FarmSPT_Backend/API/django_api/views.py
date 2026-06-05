@@ -7,8 +7,8 @@ from rest_framework.permissions import IsAdminUser, AllowAny
 from API.django_api.serializers import ABTraceXMLUploadSerializer, FieldBoundaryXMLUploadSerializer, GroupSerializer, UserSerializer, FieldBoundarySerializer, ABTraceSerializer
 from API.django_api.models import FieldBoundary, ABTrace
 import xml.etree.ElementTree as ET
-from .models import MQTTMessage, Role
-from .serializers import MQTTMessageSerializer, RoleSerializer
+from .models import MQTTMessage, Role, SyncPartner
+from .serializers import MQTTMessageSerializer, RoleSerializer, SyncPartnerSerializer
 from keycloak import KeycloakAdmin
 from keycloak.exceptions import KeycloakGetError
 import requests
@@ -379,7 +379,7 @@ def token_login(request):
         return Response({"error": error_msg}, status=status_code)
 
 
-    #TODO: checken ob der Farmer in "Krone" gemappt ist und gibt den Manufacturertoken zurück um den Manufactuer login zu haben und nicht den farmer login  
+    #TODO: checken ob der Farmer in "Krone" gemappt ist und gibt den Manufacturertoken zurück um den Manufactuer login zu haben und nicht den farmer login  Childgroups undso?
     
     # Token-Daten zurückgeben
     token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
@@ -605,6 +605,62 @@ def mqtt_latest_timestamp(request):
     return Response({
         "timestamp": latest.timestamp.isoformat() if latest else None
     })
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def mqtt_delete_all_messages(request):
+    """
+    Löscht alle MQTT-Nachrichten
+    DELETE /api/mqtt-messages/
+    """
+    try:
+        count, _ = MQTTMessage.objects.all().delete()
+        return Response({
+            "status": "success",
+            "deleted_count": count
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def mqtt_delete_message(request, message_id):
+    """
+    Löscht eine einzelne MQTT-Nachricht
+    DELETE /api/mqtt-messages/{message_id}/
+    """
+    try:
+        message = MQTTMessage.objects.get(id=message_id)
+        message.delete()
+        return Response({
+            "status": "success",
+            "message": f"Message {message_id} deleted"
+        }, status=status.HTTP_200_OK)
+    except MQTTMessage.DoesNotExist:
+        return Response(
+            {"error": "Message not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+class SyncPartnerViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint für SyncPartner
+    """
+    queryset = SyncPartner.objects.all()
+    serializer_class = SyncPartnerSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
 
 
 

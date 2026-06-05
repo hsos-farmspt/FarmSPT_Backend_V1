@@ -31,6 +31,7 @@ router.register(r"users", views.UserViewSet)
 router.register(r"groups", views.GroupViewSet)
 router.register(r"fieldboundaries", views.FieldBoundaryViewSet)
 router.register(r"traces", views.ABTraceViewSet)
+router.register(r"syncpartners", views.SyncPartnerViewSet)
 
 FRONTEND_DIR = settings.BASE_DIR / "API" / "_frontend_test"
 
@@ -84,6 +85,8 @@ urlpatterns = [
     path("api/mqtt-get-messages/", views.mqtt_getMessages, name="mqtt_getMessages"),  
     path("mqtt-dashboard/", views.DashboardView.as_view(), name='mqtt_dashboard'),  
     path("api/mqtt-latest-timestamp/", views.mqtt_latest_timestamp, name="mqtt_latest_timestamp"),
+    path("api/mqtt-messages/", views.mqtt_delete_all_messages, name="mqtt_delete_all_messages"),
+    path("api/mqtt-messages/<str:message_id>/", views.mqtt_delete_message, name="mqtt_delete_message"),
 
     path("", include(router.urls)),
     
