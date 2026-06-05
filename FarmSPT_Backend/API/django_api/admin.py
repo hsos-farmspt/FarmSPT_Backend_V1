@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import FieldBoundary, ABTrace, Role, Farmer, SyncPartner, Manufacturer
+from .models import FieldBoundary, ABTrace, MQTTMessage, Role, Farmer, SyncPartner, Manufacturer
 
 @admin.register(Farmer)
 class FarmerAdmin(admin.ModelAdmin):
@@ -52,5 +52,11 @@ class SyncPartnerAdmin(admin.ModelAdmin):
 @admin.register(Manufacturer)
 class ManufacturerAdmin(admin.ModelAdmin):
     list_display = ['name', 'created_at', 'updated_at']
+
+@admin.register(MQTTMessage)
+class MQTTMessageAdmin(admin.ModelAdmin):
+    list_display = ['topic', 'payload', 'timestamp']
+    readonly_fields = ['topic', 'payload', 'timestamp']
+
 
 
