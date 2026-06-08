@@ -58,7 +58,7 @@ def api_root(request, format=None):
 
             "---------------------------Keycloak-Authentication:----------------------------": " ",
             "login": reverse("token_login", request=request, format=format),
-            "keycloak_create_manufacturer": reverse("keycloak_create_manufacturer", request=request, format=format),
+            "create_manufacturer_withRealm": reverse("keycloak_create_manufacturer", request=request, format=format),
             "create_farmers_keycloakToDjango": reverse("create_farmers_keycloakToDjango", request=request, format=format),
             "add_user_to_group": reverse("add_user_to_group", request=request, format=format),
             "define_sync_partner": reverse("define_sync_partners", request=request, format=format),
