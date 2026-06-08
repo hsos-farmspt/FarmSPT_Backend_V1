@@ -18,6 +18,9 @@ docker compose exec backend python manage.py migrate
 
 docker compose up --build -d
 
+# superuser password change django
+sudo docker exec -it farmspt_backend python manage.py changepassword admin
+
 # Logs checken
 docker compose logs -f
 
