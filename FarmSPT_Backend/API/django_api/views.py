@@ -662,5 +662,127 @@ class SyncPartnerViewSet(viewsets.ModelViewSet):
 
 
 
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_manufacturers(request):
+    """
+    Gibt eine Liste aller Hersteller (Manufacturers) zurück
+    GET /api/manufacturers/
+    """
+    try:
+        keycloak_admin = KeycloakAdmin(
+            server_url=settings.KEYCLOAK_URL,
+            client_id=settings.KEYCLOAK_CLIENT_ID,
+            client_secret_key=settings.KEYCLOAK_CLIENT_SECRET,
+            realm_name=settings.KEYCLOAK_REALM,
+            verify=False
+        )
+        
+        groups = keycloak_admin.get_groups()
+        manufacturers = [g for g in groups if g['name'] == 'Manufacturers']
+        
+        if not manufacturers:
+            return Response(
+                {"error": "Manufacturers group not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        manufacturer_group = manufacturers[0]
+        members = keycloak_admin.get_group_members(manufacturer_group['id'])
+        
+        return Response(members, status=status.HTTP_200_OK)
+        
+    except KeycloakGetError as e:
+        return Response(
+            {"error": f"Keycloak error: {e}"},
+            status=status.HTTP_502_BAD_GATEWAY
+        )
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
+@api_view(['Post'])
+def define_sync_partners(request):
+    """
+    Definiert Sync-Partner für die Daten-Synchronisation
+    POST /api/syncpartners/
+    
+    Erforderliche Parameter (JSON) - Variante 1 (mehrere Manufacturer):
+    {
+        "farmer": "klaus@farmer.de",
+        "usernames": ["Manufacturer X", "Manufacturer Y", "Manufacturer Z"]
+    }
+    
+    Oder Variante 2 (einzelner Manufacturer):
+    {
+        "farmer": "klaus@farmer.de",
+        "username": "Manufacturer X"
+    }
+    """
+    from API.django_api.models import Farmer, Manufacturer
+    
+    farmer_email = request.data.get("farmer")
+    usernames = request.data.get("usernames")  # Liste
+    single_username = request.data.get("username")  # Einzelner String
+
+    # Fallback: wenn usernames nicht gesetzt, single_username in Liste konvertieren
+    if not usernames and single_username:
+        usernames = [single_username]
+    
+    if not farmer_email or not usernames:
+        return Response(
+            {"error": "farmer and usernames/username are required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # usernames muss eine Liste sein
+    if not isinstance(usernames, list):
+        usernames = [usernames]
+    
+    try:
+        # Farmer-Instanz anhand der Email suchen
+        farmer = Farmer.objects.get(email=farmer_email)
+        
+        # SyncPartner für alle Manufacturer erstellen
+        created_partners = []
+        for username in usernames:
+            if not username:  # Leere Strings überspringen
+                continue
+            
+            # Manufacturer anhand des Namens suchen oder erstellen
+            manufacturer, _ = Manufacturer.objects.get_or_create(name=username)
+            
+            # SyncPartner erstellen
+            partner = SyncPartner.objects.create(
+                farmer=farmer,
+                manufacturer=manufacturer
+            )
+            created_partners.append(partner)
+        
+        if not created_partners:
+            return Response(
+                {"error": "No valid manufacturers provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Alle erstellten Partner serialisieren
+        serializer = SyncPartnerSerializer(created_partners, many=True)
+        return Response({
+            "status": "success",
+            "count": len(created_partners),
+            "partners": serializer.data
+        }, status=status.HTTP_201_CREATED)
+        
+    except Farmer.DoesNotExist:
+        return Response(
+            {"error": f"Farmer with email '{farmer_email}' not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

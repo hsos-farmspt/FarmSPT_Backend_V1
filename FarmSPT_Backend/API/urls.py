@@ -54,12 +54,14 @@ def api_root(request, format=None):
             "--------------------------FarmSPT-Data:----------------------------------------": " ",
             "fieldboundaries": reverse("fieldboundary-list", request=request, format=format),
             "traces": reverse("abtrace-list", request=request, format=format),
+            "manufacturers": reverse("get_manufacturers", request=request, format=format),
 
             "---------------------------Keycloak-Authentication:----------------------------": " ",
             "login": reverse("token_login", request=request, format=format),
             "keycloak_create_manufacturer": reverse("keycloak_create_manufacturer", request=request, format=format),
             "create_farmers_keycloakToDjango": reverse("create_farmers_keycloakToDjango", request=request, format=format),
             "add_user_to_group": reverse("add_user_to_group", request=request, format=format),
+            "define_sync_partner": reverse("define_sync_partners", request=request, format=format),
 
             "---------------------------Frontend:--------------------------------------------": " ",
             "Viewer:": "https://frontend.farmspt.ai.edvsz.hs-osnabrueck.de/",
@@ -87,6 +89,8 @@ urlpatterns = [
     path("api/mqtt-latest-timestamp/", views.mqtt_latest_timestamp, name="mqtt_latest_timestamp"),
     path("api/mqtt-messages/", views.mqtt_delete_all_messages, name="mqtt_delete_all_messages"),
     path("api/mqtt-messages/<str:message_id>/", views.mqtt_delete_message, name="mqtt_delete_message"),
+    path("api/get-manufacturers/", views.get_manufacturers, name="get_manufacturers"),
+    path("api/define-sync-partners/", views.define_sync_partners, name="define_sync_partners"),
 
     path("", include(router.urls)),
     
