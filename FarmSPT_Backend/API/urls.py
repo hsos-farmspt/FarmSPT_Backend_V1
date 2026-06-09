@@ -64,6 +64,7 @@ def api_root(request, format=None):
             "define_sync_partner": reverse("define_sync_partners", request=request, format=format),
             "create_keycloak_subgroup": reverse("create_keycloak_subgroup", request=request, format=format),
             "get_group_hierarchy": reverse("get_group_hierarchy", request=request, format=format),
+            "create_manufacturer": reverse("create_manufacturer", request=request, format=format),
             "---------------------------Frontend:--------------------------------------------": " ",
             "Viewer:": "https://frontend.farmspt.ai.edvsz.hs-osnabrueck.de/",
 
@@ -94,6 +95,7 @@ urlpatterns = [
     path("api/define-sync-partners/", views.define_sync_partners, name="define_sync_partners"),
     path("api/keycloak/subgroup/", views.add_subgroup, name="create_keycloak_subgroup"),
     path("api/keycloak/group-hierarchy/", views.get_group_hierarchy, name="get_group_hierarchy"),
+    path("api/create-manufacturer/", views.createManufacturer, name="create_manufacturer"),
 
     path("", include(router.urls)),
     

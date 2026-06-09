@@ -981,3 +981,77 @@ def get_group_hierarchy(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def createManufacturer(request):
+    """
+    Erstellt einen Manufacturer in Keycloak
+    
+    POST /api/create-manufacturer/
+    
+    {
+        "username": "manufacturer-name",
+        "email": "mfg@example.com",
+        "password": "SecurePassword123!",
+        "first_name": "Max",
+        "last_name": "Mustermann"
+    }
+    """
+    username = request.data.get("username")
+    email = request.data.get("email")
+    password = request.data.get("password")
+    first_name = request.data.get("first_name", "")
+    last_name = request.data.get("last_name", "")
+    
+    if not username or not email or not password:
+        return Response(
+            {"error": "username, email and password are required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        keycloak_admin = KeycloakAdmin(
+            server_url=settings.KEYCLOAK_URL,
+            client_id=settings.KEYCLOAK_CLIENT_ID,
+            client_secret_key=settings.KEYCLOAK_CLIENT_SECRET,
+            realm_name=settings.KEYCLOAK_REALM,
+            verify=False
+        )
+        
+        user_data = {
+            "username": username,
+            "email": email,
+            "firstName": first_name,
+            "lastName": last_name,
+            "enabled": True,
+            "credentials": [
+                {
+                    "type": "password",
+                    "value": password,
+                    "temporary": False
+                }
+            ],
+        }
+        
+        user_id = keycloak_admin.create_user(user_data)
+        
+        return Response({
+            "status": "success",
+            "user_id": user_id,
+            "username": username,
+            "email": email
+        }, status=status.HTTP_201_CREATED)
+        
+    except KeycloakGetError as e:
+        return Response(
+            {"error": f"Keycloak error: {e}"},
+            status=status.HTTP_502_BAD_GATEWAY
+        )
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
