@@ -58,11 +58,12 @@ def api_root(request, format=None):
 
             "---------------------------Keycloak-Authentication:----------------------------": " ",
             "login": reverse("token_login", request=request, format=format),
-            "create_manufacturer_withRealm": reverse("keycloak_create_manufacturer", request=request, format=format),
+            "create_initialUserWithRealm": reverse("keycloak_create_initialUserWithRealm", request=request, format=format),
             "create_farmers_keycloakToDjango": reverse("create_farmers_keycloakToDjango", request=request, format=format),
             "add_user_to_group": reverse("add_user_to_group", request=request, format=format),
             "define_sync_partner": reverse("define_sync_partners", request=request, format=format),
-
+            "create_keycloak_subgroup": reverse("create_keycloak_subgroup", request=request, format=format),
+            "get_group_hierarchy": reverse("get_group_hierarchy", request=request, format=format),
             "---------------------------Frontend:--------------------------------------------": " ",
             "Viewer:": "https://frontend.farmspt.ai.edvsz.hs-osnabrueck.de/",
 
@@ -80,7 +81,7 @@ urlpatterns = [
     path("app/", serve, {"path": "index.html", "document_root": FRONTEND_DIR}),
     path("api/login/", views.token_login, name="token_login"),
     path("oidc/", include("mozilla_django_oidc.urls")),
-    path("api/keycloak/manufacturers/", views.keycloak_create_manufacturer, name="keycloak_create_manufacturer"),
+    path("api/keycloak/manufacturers/", views.keycloak_create_initialUserWithRealm, name="keycloak_create_initialUserWithRealm"),
     path("api/keycloak/farmers/", views.create_farmers_keycloakToDjango, name="create_farmers_keycloakToDjango"),
     path("api/keycloak/add-user-to-group/", views.add_user_to_group, name="add_user_to_group"),
     path("api/mqtt-message/", views.mqtt_message, name="mqtt_message"),        
@@ -91,6 +92,8 @@ urlpatterns = [
     path("api/mqtt-messages/<str:message_id>/", views.mqtt_delete_message, name="mqtt_delete_message"),
     path("api/get-manufacturers/", views.get_manufacturers, name="get_manufacturers"),
     path("api/define-sync-partners/", views.define_sync_partners, name="define_sync_partners"),
+    path("api/keycloak/subgroup/", views.add_subgroup, name="create_keycloak_subgroup"),
+    path("api/keycloak/group-hierarchy/", views.get_group_hierarchy, name="get_group_hierarchy"),
 
     path("", include(router.urls)),
     
