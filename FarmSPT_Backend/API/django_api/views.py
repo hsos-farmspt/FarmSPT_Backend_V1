@@ -260,7 +260,7 @@ class RoleViewSet(viewsets.ModelViewSet):
 def keycloak_create_manufacturer(request):
     """
     Erstellt einen neuen Manufacturer(User) in Keycloak
-    und fügt ihn automatisch zur 'Manufacturers' Gruppe hinzu
+    mit einer Hierarchie: Realm_{username} -> manufacturer (Subgroup)
     
     POST /api/keycloak/manufacturers/
     
@@ -292,7 +292,8 @@ def keycloak_create_manufacturer(request):
             client_secret_key=settings.KEYCLOAK_CLIENT_SECRET,  
             realm_name=settings.KEYCLOAK_REALM,
             verify=False
-)
+        )
+        
         # User erstellen
         user_data = {
             "username": username,
@@ -311,31 +312,51 @@ def keycloak_create_manufacturer(request):
         
         user_id = keycloak_admin.create_user(user_data)
         
+        # Parent Group erstellen: Realm_{username}
+        parent_group_id = keycloak_admin.create_group({"name": f"Realm_{username}"})
         
-        
-        #receiver group erstellen
-        #TODO:check if already exists, sonst Fehler schmeisen und in helper methode refactoren
-        receiver_group_id = keycloak_admin.create_group({"name": f"{username}_receiver"})
-        #producer group erstellen
-        producer_group_id = keycloak_admin.create_group({"name": f"{username}_producer"})
+        # Subgroup "manufacturer" unter Parent Group erstellen
+        subgroup_url = f"{settings.KEYCLOAK_URL}/admin/realms/{settings.KEYCLOAK_REALM}/groups/{parent_group_id}/children"
+
+        response = requests.post(
+            subgroup_url,
+            json={"name": "manufacturer"},
+            headers={"Authorization": f"Bearer {keycloak_admin.connection.token['access_token']}"},
+            verify=False
+        )
+
+        if response.status_code not in [200, 201]:
+            raise Exception(f"Failed to create subgroup: {response.text}")
+
+        # Die neue Gruppe-ID wird im Location Header zurückgegeben
+        manufacturer_subgroup_id = response.headers.get('Location', '').split('/')[-1]
+
+        if not manufacturer_subgroup_id:
+            # Fallback: versuchen aus dem Response Body zu extrahieren
+            try:
+                manufacturer_subgroup_id = response.json().get('id')
+            except:
+                raise Exception("Could not extract subgroup ID from response")
 
         # User zu den Gruppen hinzufügen
-        keycloak_admin.group_user_add(user_id, receiver_group_id)
-        keycloak_admin.group_user_add(user_id, producer_group_id)
+        keycloak_admin.group_user_add(user_id, parent_group_id)
+        #keycloak_admin.group_user_add(user_id, manufacturer_subgroup_id)
 
-        # User zur Manufacturers Gruppe hinzufügen
+        # User zur Manufacturers Gruppe hinzufügen (falls noch benötigt)
         success, message = helperMethods.add_user_to_manufacturers_group(user_id)
         
         if not success:
             return Response(
                 {"error": f"User erstellt, aber Gruppenzuweisung fehlgeschlagen: {message}"},
-                status=status.HTTP_201_CREATED  # User wurde trotzdem erstellt
+                status=status.HTTP_201_CREATED
             )
         
         return Response(
             {
                 "status": "created",
                 "user_id": user_id,
+                "parent_group": f"Realm_{username}",
+                "subgroup": "manufacturer",
                 "message": message
             },
             status=status.HTTP_201_CREATED
