@@ -988,7 +988,7 @@ def get_group_hierarchy(request):
 @permission_classes([permissions.IsAuthenticated])
 def createManufacturer(request):
     """
-    Erstellt einen Manufacturer in Keycloak
+    Erstellt einen Manufacturer in Keycloak mit default-deny Role
     
     POST /api/create-manufacturer/
     
@@ -1038,11 +1038,16 @@ def createManufacturer(request):
         
         user_id = keycloak_admin.create_user(user_data)
         
+        # Weise dem User die default-deny Realm-Role zu
+        default_deny_role = keycloak_admin.get_realm_role("default-deny")
+        keycloak_admin.assign_realm_roles(user_id=user_id, roles=[default_deny_role])
+        
         return Response({
             "status": "success",
             "user_id": user_id,
             "username": username,
-            "email": email
+            "email": email,
+            "role": "default-deny"
         }, status=status.HTTP_201_CREATED)
         
     except KeycloakGetError as e:
