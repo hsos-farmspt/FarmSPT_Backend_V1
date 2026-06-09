@@ -8,6 +8,12 @@ import jwt
 import logging
 import xml.etree.ElementTree as ET
 from math import radians, sin, cos, sqrt, atan2
+import gzip
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+import uuid
+import base64
+import json
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -83,6 +89,172 @@ class KeycloakOIDCAuthenticationBackend(OIDCAuthenticationBackend):
             raise AuthenticationFailed("Access denied: insufficient permissions")
         
         return user_info
+
+class passkeyHelper:
+    """Hilfsmethoden für Passkey-Verarbeitung"""
+
+    @staticmethod
+    def generate_key_secret(num_bytes = 16):
+        key = {
+        "kid":str(uuid.uuid4()),
+        "secret":get_random_bytes(num_bytes)
+        }
+        return key 
+
+    @staticmethod    
+    def create_key(secret = None, nonce = None):
+        if not secret:
+            secret = passkeyHelper.generate_key_secret()
+        cipher = AES.new(secret, AES.MODE_EAX, nonce=nonce)
+        return cipher
+        
+    @staticmethod
+    def encode_header(header):
+        header = json.dumps(header ) 
+        header = header.encode('ascii') 
+        return header
+
+    @staticmethod   
+    def decode_header(header):
+        header = base64.b64decode(header)
+        header = header.decode('ascii')
+        header = json.loads(header )  
+        return header
+
+    @staticmethod    
+    def cipher_msg(msg, header, key):
+        header = passkeyHelper.encode_header(header)
+        #print("Header:", header)
+        
+        cipher = passkeyHelper.create_key(key)
+        cipher.update(header)
+        ciphertext, tag = cipher.encrypt_and_digest(msg)
+        
+        json_k = [ 'nonce', 'header', 'ciphertext', 'tag' ]
+        json_v = [ base64.b64encode(x).decode('utf-8') for x in (cipher.nonce, header, ciphertext, tag) ]
+        result = dict(zip(json_k, json_v))
+        
+        #result_json = json.dumps(result)
+        #b64_old = base64.b64encode(result_json.encode('utf-8'))
+        
+        b64 = passkeyHelper.json_to_compressed_base64(result)
+        
+        #print(f"Compression: {100*len(b64)/len(b64_old):.2f}%")
+        print(f"Result Length: {len(b64)}")
+        
+        return b64
+        
+    @staticmethod    
+    def get_header_from_passkey(passkey):
+        header = {"kid":passkey['kid'], "server_url":passkey['server_url'], "realm_name":passkey['realm_name'], "farm_realm":passkey['farm_realm'], "username":passkey['username']}
+        return header
+
+    @staticmethod    
+    def get_header_from_msg(msg):
+        #msg_jsons = base64.b64decode(msg.decode('utf-8'))
+        #msg_json = json.loads(msg_jsons)
+        msg_json = passkeyHelper.compressed_base64_to_json(msg)
+        
+        header = passkeyHelper.decode_header(msg_json['header'])
+        return header
+
+    @staticmethod    
+    def decode_msg(msg):
+        msg = base64.b64decode(msg.decode('utf-8'))
+        msg = json.loads(msg)
+        #print(msg)
+        
+        header = passkeyHelper.decode_header(msg['header'])
+        #print(header)
+        
+        return header, msg
+            
+    @staticmethod
+    def decipher_msg(msg, key_secret):      
+        try:
+            #msg = base64.b64decode(msg.decode('utf-8'))
+            #b64 = json.loads(msg)
+            
+            b64 = passkeyHelper.compressed_base64_to_json(msg)
+            
+            json_k = [ 'nonce', 'header', 'ciphertext', 'tag' ]
+            jv = {k:base64.b64decode(b64[k]) for k in json_k}
+            #print(jv)
+            print(key)
+            cipher = passkeyHelper.create_key(key_secret, nonce=jv['nonce'])
+            cipher.update(jv['header'])
+            plaintext = cipher.decrypt_and_verify(jv['ciphertext'], jv['tag'])
+            
+            return plaintext
+        except (ValueError, KeyError):
+            print("Incorrect decryption")
+
+    @staticmethod     
+    def encode_json_msg(json_msg):
+        #json_str = json.dumps(json_msg)
+        #msg = base64.b64encode(json_str.encode('utf-8'))
+        
+        msg = passkeyHelper.json_to_compressed_base64(json_msg)
+        return msg
+        
+    @staticmethod
+    def decode_json_msg(msg):
+        #json_str = base64.b64decode(msg).decode('utf-8')
+        #json_msg = json.loads(json_str)
+        
+        json_msg = passkeyHelper.compressed_base64_to_json(msg)
+        return json_msg
+        
+    @staticmethod
+    def json_to_compressed_base64(json_obj):
+        """
+        Konvertiert ein JSON-Objekt zu einem gezippten Base64-String
+        
+        Args:
+            json_obj: JSON-Objekt (dict, list, etc.)
+        
+        Returns:
+            Base64-kodierter String des gezippten JSON
+        """
+        # JSON zu String konvertieren
+        json_string = json.dumps(json_obj)
+        
+        # String zu Bytes konvertieren
+        json_bytes = json_string.encode('utf-8')
+        
+        # Mit gzip komprimieren
+        compressed = gzip.compress(json_bytes)
+        
+        # Zu Base64 kodieren
+        base64_string = base64.b64encode(compressed)#.decode('utf-8')
+        
+        return base64_string
+
+    @staticmethod
+    def compressed_base64_to_json(base64_string):
+        """
+        Dekodiert einen Base64-String zurück zu einem JSON-Objekt
+        
+        Args:
+            base64_string: Base64-kodierter String
+        
+        Returns:
+            JSON-Objekt
+        """
+        # Von Base64 dekodieren
+        compressed = base64.b64decode(base64_string)#.encode('utf-8'))
+        
+        # Gzip dekomprimieren
+        json_bytes = gzip.decompress(compressed)
+        
+        # Bytes zu String konvertieren
+        json_string = json_bytes.decode('utf-8')
+        
+        # String zu JSON-Objekt konvertieren
+        json_obj = json.loads(json_string)
+        
+        return json_obj
+    
 
 class helperMethods:
     """Hilfsmethoden für Authentifizierung und Datenverarbeitung"""

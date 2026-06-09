@@ -10,13 +10,16 @@ import xml.etree.ElementTree as ET
 from .models import MQTTMessage, Role, SyncPartner
 from .serializers import MQTTMessageSerializer, RoleSerializer, SyncPartnerSerializer
 from keycloak import KeycloakAdmin
+from keycloak import KeycloakOpenID
 from keycloak.exceptions import KeycloakGetError
 import requests
 from django.conf import settings
 import jwt
 from .authentication import helperMethods
+from .authentication import passkeyHelper
 from django.http import HttpResponse
 from django.views.generic import TemplateView
+import re
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -309,11 +312,31 @@ def keycloak_create_initialUserWithRealm(request):
                 }
             ],
         }
-        
+
+        user_realm = f"Realm_{username}"
+
+
         user_id = keycloak_admin.create_user(user_data)
         
         # Parent Group erstellen: Realm_{username}
-        parent_group_id = keycloak_admin.create_group({"name": f"Realm_{username}"})
+        parent_group_id = keycloak_admin.create_group({"name": user_realm})
+
+        key = passkeyHelper.generate_key_secret() # Generate new!!!!!!!!!!
+        
+        passkey = {
+            "server_url":settings.KEYCLOAK_URL,
+            "realm_name":settings.KEYCLOAK_REALM,
+            "farm_realm":user_realm,
+            "username":username,
+            "password":password,
+            "user_id":user_id,
+            "realm_id":parent_group_id,
+            "kid":key['kid']
+        }
+        
+        payload = passkeyHelper.encode_json_msg(passkey)
+        header = passkeyHelper.get_header_from_passkey(passkey)
+        passkey_result = passkeyHelper.cipher_msg(payload, header, key['secret'])
         
         # Subgroup "manufacturer" unter Parent Group erstellen
         subgroup_url = f"{settings.KEYCLOAK_URL}/admin/realms/{settings.KEYCLOAK_REALM}/groups/{parent_group_id}/children"
@@ -338,7 +361,7 @@ def keycloak_create_initialUserWithRealm(request):
             if token_response.status_code != 200:
                 raise Exception(f"Failed to get token: {token_response.text}")
             token = token_response.json().get('access_token')
-
+        """
         response = requests.post(
             subgroup_url,
             json={"name": "Manufacturer"},
@@ -358,11 +381,18 @@ def keycloak_create_initialUserWithRealm(request):
                 subgroup_id = response.json().get('id')
             except:
                 raise Exception("Could not extract subgroup ID from response")
+        """
 
         # User zu den Gruppen hinzufügen
         keycloak_admin.group_user_add(user_id, parent_group_id)
         #keycloak_admin.group_user_add(user_id, manufacturer_subgroup_id)
 
+        new_manufacturers_group_id = keycloak_admin.create_group({"name": "Manufacturers"}, parent=parent_group_id)
+        new_manufacturers_group = keycloak_admin.get_group_by_path(f"/{user_realm}/Manufacturers")
+        new_manufacturers_group['attributes']['mqtt_superuser'] = ['false']
+        new_manufacturers_group = keycloak_admin.update_group(new_manufacturers_group_id , new_manufacturers_group)
+
+        # ToDo: Muss noch entfernt werden, wenn Vue umgebogen auf die Realm Manufacturer Groups
         # User zur Manufacturers Gruppe hinzufügen (falls noch benötigt)
         success, message = helperMethods.add_user_to_manufacturers_group(user_id)
         
@@ -378,7 +408,8 @@ def keycloak_create_initialUserWithRealm(request):
                 "user_id": user_id,
                 "parent_group": f"Realm_{username}",
                 "subgroup": "manufacturer",
-                "message": message
+                "message": message, 
+                "passkey": passkey_result
             },
             status=status.HTTP_201_CREATED
         )
@@ -997,7 +1028,8 @@ def createManufacturer(request):
         "email": "mfg@example.com",
         "password": "SecurePassword123!",
         "first_name": "Max",
-        "last_name": "Mustermann"
+        "last_name": "Mustermann",
+        "passkey": "H4sIAAMnKGoC/y1Sy7KqSBD8lRtumQhBPByZiLsAhJangAg0O2iQbqQBEeQxMf8+R+8sKyorMyMr/9k0bYOKzd+/Ntdob0LCBe2AJFmKZIezb8b0+/fmr18bXKR50b9RxWL0aeSRM5GIfdTw+aiyTgAHG+h8cmFZG6isFak8jPTBjhxsByVvA8jbO5vXyVTqjVOjJqlRLXKITh+e9OSz6GQL1iL2SVxXGRBxunxRGBsD4mXWolpn0fCeN45gUbxakbhmVCOoCWu4e44JuBJLkQiiIc4Ad/vZDclFF3TFAG+OKydfYx7OH32aYES52x8s+9G//n+HdiGBscOmkTb+8RquSWyMMOJqvWo/3iHV1hzUOCOG+E4GkQ4X/VDMwzsdCCwXHP0+NDNsnlRGg0a+EG6UFeWgC9BXO2bF59xGTPUqg9nV3D1jtKcgH2XqwGru5uq+CHXoLcPxIsL2dBSADy/f0akGc8iXAz7sVV1Z2xWlqnyJnDA1R9mPz4Ao6BYdhDTdi4MSd+pr2zbSZauejd26P3daGtOXySmjyklSL+GBBwvy7i9G16cDsBJmJ3sKEyp9u7AaCnUe09KOHasPrnleiT8f/MI2X1QEpWOn7KZWifQ7fRaTPYVbNcVaaGAclgev+Bkfav4cHpL42N5gB3TzUdtd9hK2N0FIrMDJt25itDc3k7unFx4u89kAMyb8LDbe4ZuJ3dUXdl7YPMakItbIRGcmyU3SmsoXGEBpVF5Zr3XhUGAWr1fldAEde/ubrozrOoV3vXm6UAhKlRH8erZPWohFM/vb0+RdZt/PZfe44yz06fWQlu+30XuYakGcOYBfCmlaizb/uno/1f/3PxscwaUgAwAA"
     }
     """
     username = request.data.get("username")
@@ -1005,10 +1037,11 @@ def createManufacturer(request):
     password = request.data.get("password")
     first_name = request.data.get("first_name", "")
     last_name = request.data.get("last_name", "")
+    passkey_raw = request.data.get("passkey")
     
-    if not username or not email or not password:
+    if not username or not email or not password or not passkey_raw:
         return Response(
-            {"error": "username, email and password are required"},
+            {"error": "username, email and password and the Realm Passkey are required"},
             status=status.HTTP_400_BAD_REQUEST
         )
     
@@ -1020,6 +1053,12 @@ def createManufacturer(request):
             realm_name=settings.KEYCLOAK_REALM,
             verify=False
         )
+        keycloak_openid = KeycloakOpenID(
+            server_url=settings.KEYCLOAK_URL,
+            client_id=settings.KEYCLOAK_CLIENT_ID, 
+            realm_name=settings.KEYCLOAK_REALM, 
+            client_secret_key=settings.KEYCLOAK_CLIENT_SECRET)
+        
         
         user_data = {
             "username": username,
@@ -1035,8 +1074,50 @@ def createManufacturer(request):
                 }
             ],
         }
+
+        key = None # Todo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        header = passkeyHelper.get_header_from_msg(passkey_raw)
+        #print("Header:", header)
+        payload = passkeyHelper.decipher_msg(passkey_raw, key['secret'])
+        payload = passkeyHelper.decode_json_msg(payload)
+        #print("The message was:", payload)
+
+        # For Debug to Remove!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        return Response(
+            {"passkey-header": header,
+            "passkey-payload": payload 
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+        token = keycloak_openid.token(payload['username'], payload['password'], scope='openid')
+        if not token:
+            raise Exception(f"Failed to authenticate User!")
+        
+        userinfo = keycloak_openid.userinfo(token['access_token'])
+        #print("User:", userinfo)
+    
+        #print("Groups", userinfo['usergroups'])
+
+        r = re.compile("/[^/]*/Manufacturers$")
+        newlist = list(filter(r.match, userinfo['usergroups']))
+        if not newlist[0][1:-14] == payload['farm_realm']:
+            raise Exception(f"Passkey Realm does not equal User Realm!")
         
         user_id = keycloak_admin.create_user(user_data)
+
+        #realm_manufacturers_group = keycloak_admin.get_group_by_path(f"/{payload['farm_realm']}/Manufacturers")
+        #realm_manufacturers_group_id = realm_manufacturers_group['id']
+        new_producer_group_id = keycloak_admin.create_group({"name": f"Producer_{username}", "path": f"/{payload['farm_realm']}/Manufacturers/Producer_{username}"})
+        new_producer_group = keycloak_admin.group_user_add(user_id, new_producer_group_id)
+        new_producer_group['attributes']['mqtt_publ_topic'] = [f"/data_in/{username}/#"]
+        new_producer_group = keycloak_admin.update_group(new_producer_group_id , new_producer_group)
+
+        new_receiver_group_id = keycloak_admin.create_group({"name": f"Receiver_{username}", "path": f"/{payload['farm_realm']}/Manufacturers/Receiver_{username}"})
+        new_receiver_group = keycloak_admin.group_user_add(user_id, new_receiver_group_id)
+        new_receiver_group['attributes']['mqtt_subs_topic'] = [f"/data_out/{username}/#"]
+        new_receiver_group = keycloak_admin.update_group(new_receiver_group_id , new_receiver_group)
         
         # Weise dem User die default-deny Realm-Role zu
         default_deny_role = keycloak_admin.get_realm_role("default-deny")
