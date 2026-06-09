@@ -318,10 +318,31 @@ def keycloak_create_initialUserWithRealm(request):
         # Subgroup "manufacturer" unter Parent Group erstellen
         subgroup_url = f"{settings.KEYCLOAK_URL}/admin/realms/{settings.KEYCLOAK_REALM}/groups/{parent_group_id}/children"
 
+        # Token sicher extrahieren
+        token = None
+        if hasattr(keycloak_admin.connection, 'token') and keycloak_admin.connection.token:
+            token = keycloak_admin.connection.token.get('access_token')
+
+        if not token:
+            # Fallback: neuen Token mit Client Credentials abrufen
+            token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
+            token_response = requests.post(
+                token_url,
+                data={
+                    'grant_type': 'client_credentials',
+                    'client_id': settings.KEYCLOAK_CLIENT_ID,
+                    'client_secret': settings.KEYCLOAK_CLIENT_SECRET,
+                },
+                verify=False
+            )
+            if token_response.status_code != 200:
+                raise Exception(f"Failed to get token: {token_response.text}")
+            token = token_response.json().get('access_token')
+
         response = requests.post(
             subgroup_url,
             json={"name": "Manufacturer"},
-            headers={"Authorization": f"Bearer {keycloak_admin.connection.token['access_token']}"},
+            headers={"Authorization": f"Bearer {token}"},
             verify=False
         )
 
@@ -329,12 +350,12 @@ def keycloak_create_initialUserWithRealm(request):
             raise Exception(f"Failed to create subgroup: {response.text}")
 
         # Die neue Gruppe-ID wird im Location Header zurückgegeben
-        manufacturer_subgroup_id = response.headers.get('Location', '').split('/')[-1]
+        subgroup_id = response.headers.get('Location', '').split('/')[-1]
 
-        if not manufacturer_subgroup_id:
+        if not subgroup_id:
             # Fallback: versuchen aus dem Response Body zu extrahieren
             try:
-                manufacturer_subgroup_id = response.json().get('id')
+                subgroup_id = response.json().get('id')
             except:
                 raise Exception("Could not extract subgroup ID from response")
 
@@ -483,15 +504,15 @@ def add_user_to_group(request):
     Erforderliche Parameter (JSON):
     {
         "user_id": "user-uuid",
-        "group_name": "groupname"
+        "group_id": "group-uuid"
     }
     """
     user_id = request.data.get("user_id")
-    group_name = request.data.get("group_name")
+    group_id = request.data.get("group_id")
     
-    if not user_id or not group_name:
+    if not user_id or not group_id:
         return Response(
-            {"error": "user_id and group_name are required"},
+            {"error": "user_id and group_id are required"},
             status=status.HTTP_400_BAD_REQUEST
         )
     
@@ -504,27 +525,13 @@ def add_user_to_group(request):
             verify=False
         )
         
-        # Gruppe nach Name finden
-        groups = keycloak_admin.get_groups()
-        group_id = None
-        
-        for group in groups:
-            if group['name'] == group_name:
-                group_id = group['id']
-                break
-        
-        if not group_id:
-            return Response(
-                {"error": f"Group '{group_name}' not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
+        # User zur Gruppe hinzufügen
         keycloak_admin.group_user_add(user_id, group_id)
         
         return Response(
             {
                 "status": "success",
-                "message": f"User {user_id} added to group {group_name}"
+                "message": f"User {user_id} added to group {group_id}"
             },
             status=status.HTTP_200_OK
         )
@@ -809,7 +816,7 @@ def define_sync_partners(request):
         )
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([AllowAny])
 def add_subgroup(request):
     """
     Fügt eine Subgroup unter einer Parent-Gruppe hinzu
@@ -861,32 +868,59 @@ def add_subgroup(request):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Subgroup erstellen
+        # Subgroup erstellen (wie in keycloak_create_initialUserWithRealm)
         subgroup_url = f"{settings.KEYCLOAK_URL}/admin/realms/{settings.KEYCLOAK_REALM}/groups/{parent_group_id}/children"
-        
+
+        # Token sicher extrahieren
+        token = None
+        if hasattr(keycloak_admin.connection, 'token') and keycloak_admin.connection.token:
+            token = keycloak_admin.connection.token.get('access_token')
+
+        if not token:
+            # Fallback: neuen Token mit Client Credentials abrufen
+            token_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}/protocol/openid-connect/token"
+            token_response = requests.post(
+                token_url,
+                data={
+                    'grant_type': 'client_credentials',
+                    'client_id': settings.KEYCLOAK_CLIENT_ID,
+                    'client_secret': settings.KEYCLOAK_CLIENT_SECRET,
+                },
+                verify=False
+            )
+            if token_response.status_code != 200:
+                raise Exception(f"Failed to get token: {token_response.text}")
+            token = token_response.json().get('access_token')
+
         response = requests.post(
             subgroup_url,
             json={"name": subgroup_name},
-            headers={"Authorization": f"Bearer {keycloak_admin.connection.token['access_token']}"},
+            headers={"Authorization": f"Bearer {token}"},
             verify=False
         )
-        
+
         if response.status_code not in [200, 201]:
             raise Exception(f"Failed to create subgroup: {response.text}")
-        
+
+        # Die neue Gruppe-ID wird im Location Header zurückgegeben
         subgroup_id = response.headers.get('Location', '').split('/')[-1]
+
         if not subgroup_id:
+            # Fallback: versuchen aus dem Response Body zu extrahieren
             try:
                 subgroup_id = response.json().get('id')
             except:
-                pass
+                raise Exception("Could not extract subgroup ID from response")
+
+       
         
         return Response(
             {
-                "status": "success",
+                "status": "created",
                 "subgroup_id": subgroup_id,
-                "subgroup_name": subgroup_name,
-                "parent_group_id": parent_group_id
+                "parent_group_id": parent_group_id,
+                "subgroup": "manufacturer",
+                "message": f"Subgroup '{subgroup_name}' created under parent group ID '{parent_group_id}'"
             },
             status=status.HTTP_201_CREATED
         )
@@ -903,19 +937,24 @@ def add_subgroup(request):
         )
 
 
+def _build_group_tree(keycloak_admin, group):
+    """Rekursiv alle Subgroups mit Details erstellen"""
+    subgroups = keycloak_admin.get_group_children(group['id'])
+    
+    return {
+        "id": group['id'],
+        "name": group['name'],
+        "subgroups": [_build_group_tree(keycloak_admin, subgroup) for subgroup in subgroups]
+    }
+
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def get_group_hierarchy(request):
     """
-    Gibt die komplette Gruppen-Hierarchie zurück
+    Gibt die komplette Gruppen-Hierarchie mit allen Subgroups rekursiv zurück
     GET /api/keycloak/group-hierarchy/
-    
-    Optional: nach bestimmter Gruppe filtern:
-    GET /api/keycloak/group-hierarchy/?parent_name=Realm_john.doe&subgroup_name=Manufacturer
     """
-    parent_name = request.query_params.get('parent_name')
-    subgroup_name = request.query_params.get('subgroup_name')
-    
     try:
         keycloak_admin = KeycloakAdmin(
             server_url=settings.KEYCLOAK_URL,
@@ -927,56 +966,8 @@ def get_group_hierarchy(request):
         
         groups = keycloak_admin.get_groups()
         
-        # Wenn Filter gegeben, gezielt suchen
-        if parent_name:
-            for parent_group in groups:
-                if parent_group['name'] == parent_name:
-                    # Subgroups der Parent-Gruppe abrufen
-                    subgroups = keycloak_admin.get_group_children(parent_group['id'])
-                    
-                    if subgroup_name:
-                        # Nach spezifischer Subgroup suchen
-                        for subgroup in subgroups:
-                            if subgroup['name'] == subgroup_name:
-                                return Response({
-                                    "parent_group": {
-                                        "id": parent_group['id'],
-                                        "name": parent_group['name']
-                                    },
-                                    "subgroup": {
-                                        "id": subgroup['id'],
-                                        "name": subgroup['name']
-                                    }
-                                }, status=status.HTTP_200_OK)
-                        
-                        return Response(
-                            {"error": f"Subgroup '{subgroup_name}' not found under '{parent_name}'"},
-                            status=status.HTTP_404_NOT_FOUND
-                        )
-                    else:
-                        # Alle Subgroups zurückgeben
-                        return Response({
-                            "parent_group": {
-                                "id": parent_group['id'],
-                                "name": parent_group['name']
-                            },
-                            "subgroups": subgroups
-                        }, status=status.HTTP_200_OK)
-            
-            return Response(
-                {"error": f"Parent group '{parent_name}' not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Keine Filter: komplette Hierarchie zurückgeben
-        hierarchy = []
-        for group in groups:
-            subgroups = keycloak_admin.get_group_children(group['id'])
-            hierarchy.append({
-                "id": group['id'],
-                "name": group['name'],
-                "subgroups": subgroups
-            })
+        # Hierarchie mit rekursiven Subgroups bauen
+        hierarchy = [_build_group_tree(keycloak_admin, group) for group in groups]
         
         return Response(hierarchy, status=status.HTTP_200_OK)
         
@@ -990,7 +981,3 @@ def get_group_hierarchy(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
-
-
-
