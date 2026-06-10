@@ -54,7 +54,7 @@ def api_root(request, format=None):
             "--------------------------FarmSPT-Data:----------------------------------------": " ",
             "fieldboundaries": reverse("fieldboundary-list", request=request, format=format),
             "traces": reverse("abtrace-list", request=request, format=format),
-            "manufacturers": reverse("get_manufacturers", request=request, format=format),
+            "get-manufacturers(?farmer_username=Hans)": reverse("get_manufacturers", request=request, format=format),
 
             "---------------------------Keycloak-Authentication:----------------------------": " ",
             "login": reverse("token_login", request=request, format=format),
