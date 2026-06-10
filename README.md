@@ -43,3 +43,6 @@ mosquitto_sub -h mqtt.farmspt.ai.edvsz.hs-osnabrueck.de -p 443 --tls-use-os-cert
 start mqtt backend client.
 docker compose exec backend python /app/mqtt_backend_client.py
 
+
+# get Manufactureres für einen User (name wie realm ->capital 1st letter ->H ans nicht -> h ans)
+GET /api/manufacturers/?farmer_username=Hans

@@ -731,9 +731,17 @@ class SyncPartnerViewSet(viewsets.ModelViewSet):
 @permission_classes([IsAdminUser])
 def get_manufacturers(request):
     """
-    Gibt eine Liste aller Hersteller (Manufacturers) zurück
-    GET /api/manufacturers/
+    Gibt Manufacturers eines spezifischen Farmers zurück
+    GET /api/manufacturers/?farmer_username=john
     """
+    farmer_username = request.GET.get('farmer_username')
+    
+    if not farmer_username:
+        return Response(
+            {"error": "farmer_username parameter is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
     try:
         keycloak_admin = KeycloakAdmin(
             server_url=settings.KEYCLOAK_URL,
@@ -743,17 +751,27 @@ def get_manufacturers(request):
             verify=False
         )
         
-        groups = keycloak_admin.get_groups()
-        manufacturers = [g for g in groups if g['name'] == 'Manufacturers']
+        # 1. Farmer-Group finden: Realm_{farmer_username}
+        farmer_realm = f"Realm_{farmer_username}"
+        farmer_group = keycloak_admin.get_group_by_path(f"/{farmer_realm}")
         
-        if not manufacturers:
+        if not farmer_group:
             return Response(
-                {"error": "Manufacturers group not found"},
+                {"error": f"Farmer group '{farmer_realm}' not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        manufacturer_group = manufacturers[0]
-        members = keycloak_admin.get_group_members(manufacturer_group['id'])
+        # 2. Manufacturers Subgroup unter dieser Group finden
+        manufacturers_group = keycloak_admin.get_group_by_path(f"/{farmer_realm}/Manufacturers")
+        
+        if not manufacturers_group:
+            return Response(
+                {"error": f"Manufacturers subgroup not found for farmer '{farmer_username}'"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 3. Members dieser Group zurückgeben
+        members = keycloak_admin.get_group_members(manufacturers_group['id'])
         
         return Response(members, status=status.HTTP_200_OK)
         
