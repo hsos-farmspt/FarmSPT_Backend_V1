@@ -727,8 +727,9 @@ class SyncPartnerViewSet(viewsets.ModelViewSet):
 
 
 
+#TODO needs auth via Token
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([AllowAny])
 def get_manufacturers(request):
     """
     Gibt Manufacturers eines spezifischen Farmers zurück
@@ -853,12 +854,109 @@ def define_sync_partners(request):
         
         # Alle erstellten Partner serialisieren
         serializer = SyncPartnerSerializer(created_partners, many=True)
-        return Response({
-            "status": "success",
-            "count": len(created_partners),
-            "partners": serializer.data
-        }, status=status.HTTP_201_CREATED)
-        
+
+        #Todo die entsprechenden Hersteller die übergeben werden in keycloak finden und zu als member zu den passenden receiver/producer gruppen hinzufügen
+        # Keycloak Integration: Manufacturer zur Receiver-Subgroup hinzufügen
+        keycloak_added_users =  []
+        keycloak_failed_users = []
+
+        try:
+            keycloak_admin = KeycloakAdmin(
+                server_url=settings.KEYCLOAK_URL,
+                client_id=settings.KEYCLOAK_CLIENT_ID,
+                client_secret_key=settings.KEYCLOAK_CLIENT_SECRET,
+                realm_name=settings.KEYCLOAK_REALM,
+                verify=False
+            )
+            
+            # 1. Keycloak-User anhand der Farmer-Email suchen, um Farmer-Username zu bekommen
+            farmer_keycloak_users = keycloak_admin.get_users(query={'email': farmer_email})
+            
+            if not farmer_keycloak_users:
+                raise Exception(f"Farmer user not found in Keycloak with email '{farmer_email}'")
+            
+            farmer_username = farmer_keycloak_users[0]['username']
+            farmer_realm = f"Realm_{farmer_username}"
+            
+            # 2. Für jeden Username aus der Request: User zur Receiver-Subgroup hinzufügen
+            for username in usernames:
+                try:
+                    if not username:
+                        continue
+                    
+#TODO Receiver-Subgroup path: /{farmer_realm}/Manufacturers/Receiver_{username}-> sollte der username des aufrufenden Manufacturers sein!!!!!!!!!!!
+                    receiver_group_path = f"/{farmer_realm}/Manufacturers/Receiver_Claas"
+                    receiver_group = keycloak_admin.get_group_by_path(receiver_group_path)
+                    
+                    if not receiver_group:
+                        keycloak_failed_users.append({
+                            "username": username, 
+                            "error": f"Receiver group not found at path '{receiver_group_path}'"
+                        })
+                        continue
+                    
+                    receiver_group_id = receiver_group['id']
+                    
+                    # Keycloak-User suchen
+                    keycloak_users = keycloak_admin.get_users(query={'username': username})
+                    
+                    if not keycloak_users:
+                        keycloak_failed_users.append({
+                            "username": username, 
+                            "error": "User not found in Keycloak"
+                        })
+                        continue
+                    
+                    user_id = keycloak_users[0]['id']
+                    
+                    # User zur Receiver-Gruppe hinzufügen
+                    keycloak_admin.group_user_add(user_id, receiver_group_id)
+                    keycloak_added_users.append(username)
+                    
+                except Exception as e:
+                    keycloak_failed_users.append({
+                        "username": username, 
+                        "error": str(e)
+                    })
+            
+            # Response mit Keycloak-Operationen erweitern
+            response_data = {
+                "status": "success",
+                "count": len(created_partners),
+                "partners": serializer.data,
+                "keycloak": {
+                    "farmer_realm": farmer_realm,
+                    "target_group_pattern": f"/{farmer_realm}/Manufacturers/Receiver_{{username}}",
+                    "added_to_receiver_groups": keycloak_added_users,
+                    "failed": keycloak_failed_users if keycloak_failed_users else None
+                }
+            }
+            
+            if keycloak_failed_users:
+                response_data["warning"] = f"{len(keycloak_failed_users)} manufacturer(s) could not be added to Keycloak receiver group(s)"
+            
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        except KeycloakGetError as e:
+            # Keycloak-Fehler aber Partner schon in DB erstellt
+            return Response({
+                "status": "partial_success",
+                "message": "SyncPartners created in database but Keycloak receiver group assignment failed",
+                "count": len(created_partners),
+                "partners": serializer.data,
+                "keycloak_error": str(e)
+            }, status=status.HTTP_201_CREATED)
+        except Exception as keycloak_error:
+            # Anderen Fehler aber Partner schon in DB erstellt
+            return Response({
+                "status": "partial_success",
+                "message": "SyncPartners created in database but Keycloak receiver group assignment failed",
+                "count": len(created_partners),
+                "partners": serializer.data,
+                "keycloak_error": str(keycloak_error)
+            }, status=status.HTTP_201_CREATED)
+
+
     except Farmer.DoesNotExist:
         return Response(
             {"error": f"Farmer with email '{farmer_email}' not found"},
@@ -869,6 +967,7 @@ def define_sync_partners(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])

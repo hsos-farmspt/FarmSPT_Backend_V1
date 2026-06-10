@@ -44,5 +44,5 @@ start mqtt backend client.
 docker compose exec backend python /app/mqtt_backend_client.py
 
 
-# get Manufactureres für einen User (name wie realm ->capital 1st letter ->H ans nicht -> h ans)
-GET /api/manufacturers/?farmer_username=Hans
+# get for manufacturers
+GET /api/manufacturers/?farmer_username=hans
