@@ -146,7 +146,12 @@ class passkeyHelper:
         
     @staticmethod    
     def get_header_from_passkey(passkey):
-        header = {"kid":passkey['kid'], "server_url":passkey['server_url'], "realm_name":passkey['realm_name'], "farm_realm":passkey['farm_realm'], "username":passkey['username']}
+        header = {
+            "kid":passkey['kid'], 
+            "server_url":passkey['server_url'], 
+            "realm_name":passkey['realm_name'], 
+            "farm_realm":passkey['farm_realm'], 
+            "username":passkey['username']}
         return header
 
     @staticmethod    
@@ -180,7 +185,7 @@ class passkeyHelper:
             json_k = [ 'nonce', 'header', 'ciphertext', 'tag' ]
             jv = {k:base64.b64decode(b64[k]) for k in json_k}
             #print(jv)
-            print(key)
+            #print(key)
             cipher = passkeyHelper.create_key(key_secret, nonce=jv['nonce'])
             cipher.update(jv['header'])
             plaintext = cipher.decrypt_and_verify(jv['ciphertext'], jv['tag'])

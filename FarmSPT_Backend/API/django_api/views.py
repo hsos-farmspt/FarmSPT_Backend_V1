@@ -20,6 +20,7 @@ from .authentication import passkeyHelper
 from django.http import HttpResponse
 from django.views.generic import TemplateView
 import re
+import base64
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -336,6 +337,7 @@ def keycloak_create_initialUserWithRealm(request):
         
         payload = passkeyHelper.encode_json_msg(passkey)
         header = passkeyHelper.get_header_from_passkey(passkey)
+        header['key_secret'] = base64.b64encode(key['secret']).decode('ascii')
         passkey_result = passkeyHelper.cipher_msg(payload, header, key['secret'])
         
         # Subgroup "manufacturer" unter Parent Group erstellen
@@ -391,8 +393,13 @@ def keycloak_create_initialUserWithRealm(request):
         new_manufacturers_group = keycloak_admin.get_group_by_path(f"/{user_realm}/Manufacturers")
         new_manufacturers_group['attributes']['mqtt_superuser'] = ['false']
         new_manufacturers_group = keycloak_admin.update_group(new_manufacturers_group_id , new_manufacturers_group)
+        realm_roles = keycloak_admin.get_realm_roles(search_text="default-deny")
+        new_manufacturers_group = keycloak_admin.assign_group_realm_roles(new_manufacturers_group_id, realm_roles)
 
-        # ToDo: Muss noch entfernt werden, wenn Vue umgebogen auf die Realm Manufacturer Groups
+        farmer_group = keycloak_admin.get_group_by_path(f"/Farmers")
+        keycloak_admin.group_user_add(user_id, farmer_group['id'])
+        
+        """
         # User zur Manufacturers Gruppe hinzufügen (falls noch benötigt)
         success, message = helperMethods.add_user_to_manufacturers_group(user_id)
         
@@ -401,14 +408,13 @@ def keycloak_create_initialUserWithRealm(request):
                 {"error": f"User erstellt, aber Gruppenzuweisung fehlgeschlagen: {message}"},
                 status=status.HTTP_201_CREATED
             )
-        
+        """
         return Response(
             {
                 "status": "created",
                 "user_id": user_id,
                 "parent_group": f"Realm_{username}",
-                "subgroup": "manufacturer",
-                "message": message, 
+                "subgroup": f"/{user_realm}/Manufacturers",
                 "passkey": passkey_result
             },
             status=status.HTTP_201_CREATED
@@ -1029,8 +1035,8 @@ def createManufacturer(request):
         "password": "SecurePassword123!",
         "first_name": "Max",
         "last_name": "Mustermann",
-        "passkey": "H4sIAAMnKGoC/y1Sy7KqSBD8lRtumQhBPByZiLsAhJangAg0O2iQbqQBEeQxMf8+R+8sKyorMyMr/9k0bYOKzd+/Ntdob0LCBe2AJFmKZIezb8b0+/fmr18bXKR50b9RxWL0aeSRM5GIfdTw+aiyTgAHG+h8cmFZG6isFak8jPTBjhxsByVvA8jbO5vXyVTqjVOjJqlRLXKITh+e9OSz6GQL1iL2SVxXGRBxunxRGBsD4mXWolpn0fCeN45gUbxakbhmVCOoCWu4e44JuBJLkQiiIc4Ad/vZDclFF3TFAG+OKydfYx7OH32aYES52x8s+9G//n+HdiGBscOmkTb+8RquSWyMMOJqvWo/3iHV1hzUOCOG+E4GkQ4X/VDMwzsdCCwXHP0+NDNsnlRGg0a+EG6UFeWgC9BXO2bF59xGTPUqg9nV3D1jtKcgH2XqwGru5uq+CHXoLcPxIsL2dBSADy/f0akGc8iXAz7sVV1Z2xWlqnyJnDA1R9mPz4Ao6BYdhDTdi4MSd+pr2zbSZauejd26P3daGtOXySmjyklSL+GBBwvy7i9G16cDsBJmJ3sKEyp9u7AaCnUe09KOHasPrnleiT8f/MI2X1QEpWOn7KZWifQ7fRaTPYVbNcVaaGAclgev+Bkfav4cHpL42N5gB3TzUdtd9hK2N0FIrMDJt25itDc3k7unFx4u89kAMyb8LDbe4ZuJ3dUXdl7YPMakItbIRGcmyU3SmsoXGEBpVF5Zr3XhUGAWr1fldAEde/ubrozrOoV3vXm6UAhKlRH8erZPWohFM/vb0+RdZt/PZfe44yz06fWQlu+30XuYakGcOYBfCmlaizb/uno/1f/3PxscwaUgAwAA"
-    }
+        "passkey": "H4sIAFMSKWoC/y1T2c6qSBh8lRNvnUQWF5jkXADK9iOCQtPNHTS7NLtsk3n3Uc9cV31VlfpS/2yqusLx5u9fGy7kNZXrLZ1cLFHIFhBNrJz+/r3569cmi4Mo7j6seNG7wLPzWy7k17NJzPO98BU0mOt1QQtF3c4aY3gajVY8mIw9Ic+eTeZC+W+elk+pVpklrvwSlzyNyfTVCdQ7hdXr0Vj4zodlESp8FiwHgqA+YFakDCI3BgHPqDKPBslWw+PXkMg5rkCJmP7lK25uSEKOCchChU7e2OA/tKMm6cpHw6VFF7Jo/voTP8OETv5wqa+/+/8dZkCOoEkFnvz6kxWsPtRfyKNLrai/2RGR10gpszDX+rf+J+/nrnjrUV9OaWqAbQpcRjYg8gU8s4MN7Ola3J07deGth85/GsV5k8XdEM/Dp9Xd2D6sNOCcutvddRQpKn11RGuKz0g61ge5KdqCHbog1DS4LSvI9B2hCmvbwn3Q0qeXqp64pc5UsViFdDut9bmUMauHpjt5cBKHHwPMx4NVj9QCdSZyksx8bTWpS2RALrwAaeHG30X+B2azELzo3o/AHD/j0GvmAMvgJ5S9NMkws28WSezZR1AwC1MVh9cJzVUrcYNEq8hAWORqb3fS5tBeHIF9pMdxWgH3qhUU2lns8ilkhEuyD/Fy95KidjnnHNj4cJC9GlC36RkBvSifFNtBupR9fkR1fbQhorx5lmC/UpTNHdOmg7uz1FItFlZXoGlCIq+H6bi48Fm2BsF5ezFMdTZ+psmJjIC1rDdQx6ej14jOTd235aAyzVA8axyDmFutWUzqRzKd8Di2tbNvkotY2eVqNqPednw77nwnMCDv3vZK/93DEKSft52rlIBttr2mvd0eJsZmV9h9JvPvf3UuERNYAwAA"
+        }
     """
     username = request.data.get("username")
     email = request.data.get("email")
@@ -1079,17 +1085,12 @@ def createManufacturer(request):
 
         header = passkeyHelper.get_header_from_msg(passkey_raw)
         #print("Header:", header)
+    
+        key = {'kid':header['kid'], 'secret':base64.b64decode(header["key_secret"].encode('ascii'))}
+        
         payload = passkeyHelper.decipher_msg(passkey_raw, key['secret'])
         payload = passkeyHelper.decode_json_msg(payload)
         #print("The message was:", payload)
-
-        # For Debug to Remove!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        return Response(
-            {"passkey-header": header,
-            "passkey-payload": payload 
-            },
-            status=status.HTTP_400_BAD_REQUEST
-        )
 
         token = keycloak_openid.token(payload['username'], payload['password'], scope='openid')
         if not token:
@@ -1100,22 +1101,27 @@ def createManufacturer(request):
     
         #print("Groups", userinfo['usergroups'])
 
-        r = re.compile("/[^/]*/Manufacturers$")
+        r = re.compile(f"/Realm_{payload['username']}$")
         newlist = list(filter(r.match, userinfo['usergroups']))
-        if not newlist[0][1:-14] == payload['farm_realm']:
+
+        if not newlist[0][1:] == payload['farm_realm']:
             raise Exception(f"Passkey Realm does not equal User Realm!")
         
         user_id = keycloak_admin.create_user(user_data)
 
-        #realm_manufacturers_group = keycloak_admin.get_group_by_path(f"/{payload['farm_realm']}/Manufacturers")
-        #realm_manufacturers_group_id = realm_manufacturers_group['id']
-        new_producer_group_id = keycloak_admin.create_group({"name": f"Producer_{username}", "path": f"/{payload['farm_realm']}/Manufacturers/Producer_{username}"})
-        new_producer_group = keycloak_admin.group_user_add(user_id, new_producer_group_id)
+        realm_manufacturers_group = keycloak_admin.get_group_by_path(f"/{payload['farm_realm']}/Manufacturers")
+        realm_manufacturers_group_id = realm_manufacturers_group['id']
+        realm_manufacturers_group = keycloak_admin.group_user_add(user_id, realm_manufacturers_group_id)
+
+        new_producer_group_id = keycloak_admin.create_group({"name": f"Producer_{username}"}, parent=realm_manufacturers_group_id)
+        new_producer_group = keycloak_admin.get_group_by_path(f"/{payload['farm_realm']}/Manufacturers/Producer_{username}")
+        keycloak_admin.group_user_add(user_id, new_producer_group_id)
         new_producer_group['attributes']['mqtt_publ_topic'] = [f"/data_in/{username}/#"]
         new_producer_group = keycloak_admin.update_group(new_producer_group_id , new_producer_group)
 
-        new_receiver_group_id = keycloak_admin.create_group({"name": f"Receiver_{username}", "path": f"/{payload['farm_realm']}/Manufacturers/Receiver_{username}"})
-        new_receiver_group = keycloak_admin.group_user_add(user_id, new_receiver_group_id)
+        new_receiver_group_id = keycloak_admin.create_group({"name": f"Receiver_{username}"}, parent=realm_manufacturers_group_id)
+        new_receiver_group = keycloak_admin.get_group_by_path(f"/{payload['farm_realm']}/Manufacturers/Receiver_{username}")
+        keycloak_admin.group_user_add(user_id, new_receiver_group_id)
         new_receiver_group['attributes']['mqtt_subs_topic'] = [f"/data_out/{username}/#"]
         new_receiver_group = keycloak_admin.update_group(new_receiver_group_id , new_receiver_group)
         
