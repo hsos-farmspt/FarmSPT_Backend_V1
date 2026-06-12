@@ -114,7 +114,7 @@ def generate_realistic_taskdata(filename, num_fields=12):
         # PFD Element
         pfd = ET.SubElement(root, 'PFD')
         pfd.set('A', field_id)
-        pfd.set('B', str(uuid.uuid4())[:36])
+        pfd.set('B', str(uuid.uuid4())[:32])
         pfd.set('C', field_name)
         pfd.set('D', str(field_area))
         pfd.set('E', f"CTR-{(field_idx % 4) + 1}")
